@@ -4126,6 +4126,8 @@
       }
     },
     "pairing": {
+      "copy": "Copier le code d’association",
+      "copied": "Copié — contient votre token d’accès",
       "lan": "Réseau local",
       "relay": "Relais",
       "lanToken": "Réseau local + token",

@@ -4126,6 +4126,8 @@
       }
     },
     "pairing": {
+      "copy": "페어링 코드 복사",
+      "copied": "복사됨 — 접속 토큰이 포함되어 있습니다",
       "lan": "LAN",
       "relay": "릴레이",
       "lanToken": "LAN + 토큰",

@@ -4126,6 +4126,8 @@
       }
     },
     "pairing": {
+      "copy": "复制配对码",
+      "copied": "已复制 — 包含您的访问令牌",
       "lan": "局域网",
       "relay": "中继",
       "lanToken": "局域网 + Token",

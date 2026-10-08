@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { NextIntlClientProvider } from "next-intl"
-import { beforeEach, expect, it, vi } from "vitest"
+import { toast } from "sonner"
+import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import en from "@/i18n/messages/en.json"
 import type { RelayConfig } from "@/lib/types"
 import { AddressQrcodeDialog } from "./web-service-settings"
@@ -22,6 +23,13 @@ vi.mock("qrcode.react", () => ({
     <output data-testid="qr-value">{value}</output>
   ),
 }))
+vi.mock("sonner", () => ({ toast: { success: vi.fn() } }))
+
+const writeText = vi.fn().mockResolvedValue(undefined)
+const originalClipboard = Object.getOwnPropertyDescriptor(
+  navigator,
+  "clipboard"
+)
 
 const relay: RelayConfig = {
   enabled: true,
@@ -47,11 +55,99 @@ function dialog(next = props) {
     </NextIntlClientProvider>
   )
 }
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  writeText.mockReset().mockResolvedValue(undefined)
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText },
+  })
+})
+afterEach(() => {
+  if (originalClipboard) {
+    Object.defineProperty(navigator, "clipboard", originalClipboard)
+  } else {
+    Reflect.deleteProperty(navigator, "clipboard")
+  }
+})
+
+it.each(["Relay", "LAN + token"])(
+  "only offers copying %s pairing codes after reveal, and removes it when hidden",
+  (mode) => {
+    render(dialog())
+    fireEvent.click(screen.getByRole("button", { name: mode }))
+    expect(
+      screen.queryByRole("button", { name: "Copy pairing code" })
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show pairing QR (contains token)" })
+    )
+    expect(
+      screen.getByRole("button", { name: "Copy pairing code" })
+    ).toBeEnabled()
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide pairing QR" }))
+    expect(
+      screen.queryByRole("button", { name: "Copy pairing code" })
+    ).not.toBeInTheDocument()
+    expect(writeText).not.toHaveBeenCalled()
+  }
+)
+
+it.each([
+  [
+    "Relay",
+    '{"v":1,"mode":"relay","url":"https://relay.test:18443","token":"test-web-token","fp":"abababababababababababababababababababababababababababababababab","name":"Home"}',
+  ],
+  [
+    "LAN + token",
+    '{"v":1,"mode":"direct","url":"http://192.0.2.1:3090","token":"test-web-token","name":"Home"}',
+  ],
+])(
+  "copies the exact %s QR payload and warns about the token",
+  async (mode, payload) => {
+    render(dialog())
+    fireEvent.click(screen.getByRole("button", { name: mode }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show pairing QR (contains token)" })
+    )
+    expect(screen.getByTestId("qr-value").textContent).toBe(payload)
+    expect(writeText).not.toHaveBeenCalled()
+    expect(toast.success).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy pairing code" }))
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledOnce()
+      expect(writeText).toHaveBeenCalledWith(payload)
+      expect(toast.success).toHaveBeenCalledOnce()
+      expect(toast.success).toHaveBeenCalledWith(
+        "Copied — contains your access token"
+      )
+    })
+  }
+)
+
+it("does not report success when the clipboard write fails", async () => {
+  writeText.mockRejectedValueOnce(new Error("Clipboard unavailable"))
+  render(dialog())
+  fireEvent.click(screen.getByRole("button", { name: "LAN + token" }))
+  fireEvent.click(
+    screen.getByRole("button", { name: "Show pairing QR (contains token)" })
+  )
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Copy pairing code" }))
+  })
+  expect(writeText).toHaveBeenCalledOnce()
+  expect(toast.success).not.toHaveBeenCalled()
+})
 
 it("keeps LAN URL QR by default and gates both token payloads behind explicit clicks", async () => {
   render(dialog())
   expect(screen.getByTestId("qr-value")).toHaveTextContent(props.address)
+  expect(
+    screen.queryByRole("button", { name: "Copy pairing code" })
+  ).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole("button", { name: "Relay" }))
   expect(screen.queryByTestId("qr-value")).not.toBeInTheDocument()
   fireEvent.click(
@@ -62,6 +158,9 @@ it("keeps LAN URL QR by default and gates both token payloads behind explicit cl
   )
   fireEvent.click(screen.getByRole("button", { name: "LAN" }))
   expect(screen.getByTestId("qr-value")).toHaveTextContent(props.address)
+  expect(
+    screen.queryByRole("button", { name: "Copy pairing code" })
+  ).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole("button", { name: "LAN + token" }))
   expect(screen.queryByTestId("qr-value")).not.toBeInTheDocument()
   fireEvent.click(
@@ -72,22 +171,36 @@ it("keeps LAN URL QR by default and gates both token payloads behind explicit cl
   )
 })
 
-it("hides token QR on close/reopen and when token changes", async () => {
-  const view = render(dialog())
-  fireEvent.click(screen.getByRole("button", { name: "LAN + token" }))
-  fireEvent.click(
-    screen.getByRole("button", { name: "Show pairing QR (contains token)" })
-  )
-  view.rerender(dialog({ ...props, token: "changed-token" }))
-  await waitFor(() =>
+it.each(["changed-token", ""])(
+  "hides token QR and copying on close/reopen and when token changes to %j",
+  async (token) => {
+    const view = render(dialog())
+    fireEvent.click(screen.getByRole("button", { name: "LAN + token" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show pairing QR (contains token)" })
+    )
+    view.rerender(dialog({ ...props, token }))
+    await waitFor(() =>
+      expect(screen.queryByTestId("qr-value")).not.toBeInTheDocument()
+    )
+    expect(
+      screen.queryByRole("button", { name: "Copy pairing code" })
+    ).not.toBeInTheDocument()
+    view.rerender(dialog())
     expect(screen.queryByTestId("qr-value")).not.toBeInTheDocument()
-  )
-  view.rerender(dialog())
-  expect(screen.queryByTestId("qr-value")).not.toBeInTheDocument()
-  view.rerender(dialog({ ...props, open: false }))
-  view.rerender(dialog())
-  expect(screen.getByTestId("qr-value")).toHaveTextContent(props.address)
-})
+    expect(
+      screen.queryByRole("button", { name: "Copy pairing code" })
+    ).not.toBeInTheDocument()
+    view.rerender(dialog({ ...props, open: false }))
+    view.rerender(dialog())
+    expect(screen.getByTestId("qr-value")).toHaveTextContent(props.address)
+    expect(
+      screen.queryByRole("button", { name: "Copy pairing code" })
+    ).not.toBeInTheDocument()
+    expect(writeText).not.toHaveBeenCalled()
+    expect(toast.success).not.toHaveBeenCalled()
+  }
+)
 
 it("offers LAN pairing without relay backend and refuses a missing token", () => {
   render(
@@ -101,4 +214,7 @@ it("offers LAN pairing without relay backend and refuses a missing token", () =>
     screen.getByRole("button", { name: "Show pairing QR (contains token)" })
   ).toBeDisabled()
   expect(screen.queryByTestId("qr-value")).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole("button", { name: "Copy pairing code" })
+  ).not.toBeInTheDocument()
 })
