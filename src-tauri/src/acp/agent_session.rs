@@ -8,10 +8,8 @@
 //! `agent-client-protocol` 2.0. This is the same routing that method installs —
 //! a dynamic handler claiming every message from the agent that names this
 //! session id, feeding an unbounded channel — minus the prompt helpers codeg
-//! never used. codeg sends `session/prompt` itself and reads the stop reason off
-//! the response, so this channel only ever carries the agent's own messages,
-//! and it hands them out as plain [`Dispatch`]es rather than the runtime's
-//! `SessionMessage` (whose other variant, a stop reason, nothing here produces).
+//! never used. Prompt responses enter the SAME queue as updates, retaining
+//! their response router until the application has applied all earlier updates.
 //!
 //! Registering the handler is also what releases any updates the agent sent
 //! BEFORE it existed: the `Agent` role's default handler parks every message
@@ -20,13 +18,41 @@
 //! `available_commands_update` an agent sends right after `session/new`, reaches
 //! the session even though it raced the response.
 
-use agent_client_protocol::schema::v1::{NewSessionResponse, SessionId, SessionModeState};
+use agent_client_protocol::schema::v1::{
+    NewSessionResponse, PromptRequest, PromptResponse, RequestId, SessionId, SessionModeState,
+};
 use agent_client_protocol::util::MatchDispatchFrom;
 use agent_client_protocol::{
     Agent, ConnectionTo, Dispatch, DynamicHandlerGuard, HandleDispatchFrom, Handled,
 };
 use futures::channel::mpsc;
-use futures::StreamExt;
+use futures::{future::BoxFuture, FutureExt, StreamExt};
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
+
+type PromptResult = Result<PromptResponse, agent_client_protocol::Error>;
+
+type PendingPrompts = Arc<Mutex<HashSet<RequestId>>>;
+
+/// Also reclaim registrations for EOF/send failure or a dropped waiter, which
+/// never pass through the session's wire-response handler.
+struct PromptRegistration {
+    id: RequestId,
+    pending: PendingPrompts,
+}
+
+impl Drop for PromptRegistration {
+    fn drop(&mut self) {
+        self.pending.lock().unwrap().remove(&self.id);
+    }
+}
+
+/// The response boundary is visible to the active turn reader, which must
+/// stop reading when its own response is ready. An idle reader simply skips it.
+pub enum SessionRead {
+    Dispatch(Box<Dispatch>),
+    PromptResponse(RequestId),
+}
 
 /// A session the connection routes updates to. Dropping it unregisters the
 /// routing; updates for the session then fall back to the connection's other
@@ -37,6 +63,7 @@ pub struct AgentSession {
     modes: Option<SessionModeState>,
     connection: ConnectionTo<Agent>,
     update_rx: mpsc::UnboundedReceiver<Dispatch>,
+    pending_prompts: PendingPrompts,
     _routing: DynamicHandlerGuard<Agent>,
 }
 
@@ -50,15 +77,18 @@ impl AgentSession {
             session_id, modes, ..
         } = response;
         let (update_tx, update_rx) = mpsc::unbounded();
+        let pending_prompts = PendingPrompts::default();
         let routing = connection.add_dynamic_handler(SessionRouter {
             session_id: session_id.clone(),
             update_tx,
+            pending_prompts: pending_prompts.clone(),
         })?;
         Ok(Self {
             session_id,
             modes,
             connection: connection.clone(),
             update_rx,
+            pending_prompts,
             _routing: routing,
         })
     }
@@ -77,6 +107,32 @@ impl AgentSession {
         self.connection.clone()
     }
 
+    /// Register this request while holding the same short lock the router
+    /// checks. Even a response arriving on another executor thread before
+    /// `send_request_to` returns cannot miss registration and bypass the FIFO.
+    /// Nothing under the lock awaits traffic or application work.
+    pub fn prompt(
+        &mut self,
+        request: PromptRequest,
+    ) -> (RequestId, BoxFuture<'static, PromptResult>) {
+        let (pending, id) = {
+            let mut ids = self.pending_prompts.lock().unwrap();
+            let pending = self.connection.send_request_to(Agent, request);
+            let id = pending.id().clone();
+            ids.insert(id.clone());
+            (pending, id)
+        };
+        let registration = PromptRegistration {
+            id: id.clone(),
+            pending: self.pending_prompts.clone(),
+        };
+        let wait = async move {
+            let _registration = registration;
+            pending.block_task().await
+        };
+        (id, wait.boxed())
+    }
+
     /// The next message the agent sent about this session.
     ///
     /// Waiting here never times out on its own: the router outlives an agent
@@ -85,8 +141,26 @@ impl AgentSession {
     /// mean one unreadable message — it means the router itself is gone, i.e.
     /// the connection is, and a caller must stop reading rather than retry.
     pub async fn read_update(&mut self) -> Result<Dispatch, agent_client_protocol::Error> {
-        self.update_rx.next().await.ok_or_else(|| {
+        loop {
+            if let SessionRead::Dispatch(dispatch) = self.read_update_or_response().await? {
+                return Ok(*dispatch);
+            }
+        }
+    }
+
+    pub async fn read_update_or_response(
+        &mut self,
+    ) -> Result<SessionRead, agent_client_protocol::Error> {
+        let update = self.update_rx.next().await.ok_or_else(|| {
             agent_client_protocol::util::internal_error("session channel closed unexpectedly")
+        })?;
+        Ok(match update {
+            Dispatch::Response(result, router) => {
+                let id = router.id().clone();
+                router.route_with_result(result)?;
+                SessionRead::PromptResponse(id)
+            }
+            dispatch => SessionRead::Dispatch(Box::new(dispatch)),
         })
     }
 }
@@ -96,6 +170,7 @@ impl AgentSession {
 struct SessionRouter {
     session_id: SessionId,
     update_tx: mpsc::UnboundedSender<Dispatch>,
+    pending_prompts: PendingPrompts,
 }
 
 impl HandleDispatchFrom<Agent> for SessionRouter {
@@ -106,7 +181,13 @@ impl HandleDispatchFrom<Agent> for SessionRouter {
     ) -> Result<Handled<Dispatch>, agent_client_protocol::Error> {
         MatchDispatchFrom::new(message, &cx)
             .if_dispatch_from(Agent, async |message: Dispatch| {
-                if dispatch_session_id(&message) == Some(&*self.session_id.0) {
+                let prompt_response = match &message {
+                    Dispatch::Response(_, router) => {
+                        self.pending_prompts.lock().unwrap().remove(router.id())
+                    }
+                    _ => false,
+                };
+                if prompt_response || dispatch_session_id(&message) == Some(&*self.session_id.0) {
                     self.update_tx
                         .unbounded_send(message)
                         .map_err(agent_client_protocol::util::internal_error)?;
@@ -147,8 +228,164 @@ mod tests {
     };
     use agent_client_protocol::{Channel, Client, Responder, UntypedMessage};
 
+    #[derive(
+        Debug,
+        Clone,
+        serde::Serialize,
+        serde::Deserialize,
+        agent_client_protocol::JsonRpcNotification,
+    )]
+    #[notification(method = "test/after_response")]
+    struct AfterResponse {}
+
+    /// Pause application consumption until the actual ACP reader has routed
+    /// the response and a later wire frame. No scheduler timing or sleeps:
+    /// the response must still wait for every earlier application update.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn prompt_response_waits_for_earlier_session_updates() {
+        assert_prompt_response_boundary(false).await;
+    }
+
+    #[tokio::test]
+    async fn rejected_prompt_waits_for_earlier_session_updates() {
+        assert_prompt_response_boundary(true).await;
+    }
+
+    async fn assert_prompt_response_boundary(rejected: bool) {
+        use agent_client_protocol::schema::v1::StopReason;
+        let (client_end, agent_end) = Channel::duplex();
+        let received = std::sync::Arc::new(tokio::sync::Notify::new());
+        let signal = received.clone();
+        let agent = tokio::spawn(
+            Agent
+                .builder()
+                .on_receive_request(
+                    async move |_req: PromptRequest,
+                                responder: Responder<PromptResponse>,
+                                cx: ConnectionTo<Client>| {
+                        for _ in 0..8 {
+                            cx.send_notification(commands_update("s1"))?;
+                        }
+                        if rejected {
+                            responder.respond_with_error(
+                                agent_client_protocol::Error::invalid_params(),
+                            )?;
+                        } else {
+                            responder.respond(PromptResponse::new(StopReason::EndTurn))?;
+                        }
+                        // A later update must stay beyond the turn boundary,
+                        // even when it is already buffered along with the rest.
+                        cx.send_notification(commands_update("s1"))?;
+                        cx.send_notification(AfterResponse {})
+                    },
+                    agent_client_protocol::on_receive_request!(),
+                )
+                .connect_to(agent_end),
+        );
+        let result = Client
+            .builder()
+            .on_receive_notification(
+                async move |_msg: AfterResponse, _cx: ConnectionTo<Agent>| {
+                    signal.notify_one();
+                    Ok(())
+                },
+                agent_client_protocol::on_receive_notification!(),
+            )
+            .connect_with(client_end, async move |cx: ConnectionTo<Agent>| {
+                let mut session =
+                    AgentSession::attach(&cx, NewSessionResponse::new(SessionId::new("s1")))?;
+                let (id, mut response) =
+                    session.prompt(PromptRequest::new(SessionId::new("s1"), Vec::new()));
+                tokio::time::timeout(std::time::Duration::from_secs(5), received.notified())
+                    .await
+                    .expect("reader reached the frame AFTER the prompt response");
+                for _ in 0..8 {
+                    assert!(
+                        futures::poll!(response.as_mut()).is_pending(),
+                        "prompt response overtook an unprocessed session update"
+                    );
+                    assert_eq!(update_session_id(session.read_update().await?), "s1");
+                }
+                assert!(matches!(
+                    session.read_update_or_response().await?,
+                    SessionRead::PromptResponse(received_id) if received_id == id
+                ));
+                let result = response.await;
+                if rejected {
+                    assert_eq!(
+                        result.unwrap_err().code,
+                        agent_client_protocol::Error::invalid_params().code
+                    );
+                } else {
+                    assert_eq!(result?.stop_reason, StopReason::EndTurn);
+                }
+                assert_eq!(update_session_id(session.read_update().await?), "s1");
+                Ok(())
+            })
+            .await;
+        agent.abort();
+        result.expect("client connection");
+    }
+
     fn notification(params: serde_json::Value) -> Dispatch {
         Dispatch::Notification(UntypedMessage::new("session/update", params).unwrap())
+    }
+
+    #[tokio::test]
+    async fn retired_prompt_marker_does_not_release_new_prompt_and_drop_releases_waiter() {
+        use agent_client_protocol::schema::v1::StopReason;
+        let (client_end, agent_end) = Channel::duplex();
+        let received = std::sync::Arc::new(tokio::sync::Notify::new());
+        let signal = received.clone();
+        let agent = tokio::spawn(
+            Agent
+                .builder()
+                .on_receive_request(
+                    async |_req: PromptRequest,
+                           responder: Responder<PromptResponse>,
+                           cx: ConnectionTo<Client>| {
+                        responder.respond(PromptResponse::new(StopReason::Cancelled))?;
+                        cx.send_notification(AfterResponse {})
+                    },
+                    agent_client_protocol::on_receive_request!(),
+                )
+                .connect_to(agent_end),
+        );
+        let result = Client.builder().on_receive_notification(
+            async move |_msg: AfterResponse, _cx: ConnectionTo<Agent>| {
+                signal.notify_one();
+                Ok(())
+            },
+            agent_client_protocol::on_receive_notification!(),
+        ).connect_with(client_end, async move |cx: ConnectionTo<Agent>| {
+            let mut session = AgentSession::attach(&cx, NewSessionResponse::new(SessionId::new("s1")))?;
+            let request = || PromptRequest::new(SessionId::new("s1"), Vec::new());
+            let (old_id, old_response) = session.prompt(request());
+            received.notified().await;
+            // Exactly the cancellation path's ownership transfer: the old
+            // response remains awaited while the next turn is admitted.
+            let background = tokio::spawn(old_response);
+            let (new_id, mut new_response) = session.prompt(request());
+            received.notified().await;
+            assert_ne!(old_id, new_id);
+            assert!(matches!(session.read_update_or_response().await?, SessionRead::PromptResponse(id) if id == old_id));
+            assert_eq!(background.await.unwrap()?.stop_reason, StopReason::Cancelled);
+            assert!(futures::poll!(new_response.as_mut()).is_pending());
+            // Idle readers also retire markers without emitting an update.
+            assert!(session.read_update().now_or_never().is_none());
+            assert_eq!(new_response.await?.stop_reason, StopReason::Cancelled);
+
+            let (_, orphan) = session.prompt(request());
+            received.notified().await;
+            drop(session);
+            assert!(orphan.await.unwrap_err().to_string().contains("never received"));
+            Ok(())
+        });
+        let result = tokio::time::timeout(std::time::Duration::from_secs(5), result).await;
+        agent.abort();
+        result
+            .expect("no marker waiter may hang")
+            .expect("client connection");
     }
 
     fn commands_update(session_id: &str) -> SessionNotification {
@@ -209,12 +446,10 @@ mod tests {
                 let mut session = AgentSession::attach(&cx, response)?;
                 assert_eq!(&*session.session_id().0, "s1");
 
-                let first = tokio::time::timeout(
-                    std::time::Duration::from_secs(5),
-                    session.read_update(),
-                )
-                .await
-                .expect("the parked update is replayed into the new router")?;
+                let first =
+                    tokio::time::timeout(std::time::Duration::from_secs(5), session.read_update())
+                        .await
+                        .expect("the parked update is replayed into the new router")?;
                 // Nothing else is routed here: the other session's frame stays
                 // parked for a router of its own.
                 let nothing_more = tokio::time::timeout(
