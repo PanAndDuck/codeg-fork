@@ -4088,6 +4088,51 @@
       "permissionDenied": "権限が不足しています。1024 以上のポートを使用するか、より高い権限で実行してください",
       "addressUnavailable": "このアドレスはこの端末では利用できません",
       "bindFailed": "アドレスのバインドに失敗しました"
+    },
+    "relay": {
+      "title": "リモートリレー",
+      "description": "外出先から公開リレー経由でこの Codeg にアクセスします。",
+      "enable": "リレーを有効にする",
+      "url": "リレー URL",
+      "key": "リレーキー",
+      "keySet": "設定済み",
+      "replace": "変更",
+      "fingerprint": "証明書のフィンガープリント（任意）",
+      "fingerprintHint": "リレー証明書の SHA-256 フィンガープリントです。信頼する前にリレー管理者に確認してください。",
+      "advanced": "詳細設定",
+      "publicUrl": "公開 URL の上書き",
+      "publicUrlHint": "空欄の場合、リレーアドレスから生成された公開 URL を使用します。",
+      "save": "保存",
+      "saved": "リレー設定を保存しました",
+      "test": "接続をテスト",
+      "testing": "テスト中…",
+      "testSuccess": "接続成功 · RTT {rtt} ms",
+      "untrusted": "この証明書は信頼されていません。保存する前に、信頼できる経路でフィンガープリントを確認してください。",
+      "trust": "この証明書を信頼する",
+      "mismatch": "証明書のフィンガープリントが一致しません。通信の傍受、またはリレー証明書の変更の可能性があります。保存済みの指紋を変更する前に管理者に確認してください。",
+      "env": "環境変数で設定されているため、ここでは編集できません。",
+      "unavailable": "このビルドではリレーを利用できません",
+      "loading": "読み込み中…",
+      "retry": "再試行",
+      "failed": "リレーへのリクエストに失敗しました",
+      "invalidFingerprint": "有効な SHA-256 フィンガープリント（64 桁の16進数）を入力してください。",
+      "status": {
+        "disabled": "無効",
+        "waiting_for_web_service": "Web サービスの起動待ち",
+        "connecting": "接続中",
+        "connected": "接続済み · RTT {rtt} ms · ストリーム {streams}",
+        "backoff": "{seconds} 秒後に再試行",
+        "error": "エラー: {error}"
+      }
+    },
+    "pairing": {
+      "lan": "LAN",
+      "relay": "リレー",
+      "lanToken": "LAN + トークン",
+      "show": "ペアリング QR コードを表示（トークンを含む）",
+      "hide": "ペアリング QR コードを非表示",
+      "warning": "この QR コードにはアクセストークンが含まれます。信頼できる端末でのみスキャンし、コードやスクリーンショットを共有しないでください。",
+      "noToken": "ペアリング QR コードを表示するにはアクセストークンが必要です。"
     }
   },
   "DirectoryBrowser": {

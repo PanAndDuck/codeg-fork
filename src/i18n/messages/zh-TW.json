@@ -4088,6 +4088,51 @@
       "permissionDenied": "權限不足，請使用 1024 以上的連接埠，或以更高權限執行",
       "addressUnavailable": "該位址在本機不可用",
       "bindFailed": "綁定位址失敗"
+    },
+    "relay": {
+      "title": "遠端中繼",
+      "description": "透過公網中繼，在區域網路外存取此 Codeg。",
+      "enable": "啟用中繼",
+      "url": "中繼 URL",
+      "key": "中繼金鑰",
+      "keySet": "已設定",
+      "replace": "替換",
+      "fingerprint": "憑證指紋（選填）",
+      "fingerprintHint": "中繼憑證的 SHA-256 指紋。信任前請向中繼管理員核對。",
+      "advanced": "進階設定",
+      "publicUrl": "覆寫公網 URL",
+      "publicUrlHint": "留空則使用依中繼位址推導的公網 URL。",
+      "save": "儲存",
+      "saved": "中繼設定已儲存",
+      "test": "測試連線",
+      "testing": "測試中…",
+      "testSuccess": "連線成功 · RTT {rtt} 毫秒",
+      "untrusted": "此憑證尚未受信任。儲存前請透過可信管道核對指紋。",
+      "trust": "信任此憑證",
+      "mismatch": "憑證指紋不符：可能存在中間人攻擊，或中繼憑證已更換。修改已儲存的指紋前，請向管理員確認。",
+      "env": "設定由環境變數提供，無法在此編輯。",
+      "unavailable": "此版本暫不支援遠端中繼",
+      "loading": "載入中…",
+      "retry": "重試",
+      "failed": "中繼請求失敗",
+      "invalidFingerprint": "請輸入有效的 SHA-256 指紋（64 位十六進位字元）。",
+      "status": {
+        "disabled": "已停用",
+        "waiting_for_web_service": "等待 Web 服務啟動",
+        "connecting": "連線中",
+        "connected": "已連線 · RTT {rtt} 毫秒 · 使用中串流 {streams}",
+        "backoff": "{seconds} 秒後重試",
+        "error": "錯誤：{error}"
+      }
+    },
+    "pairing": {
+      "lan": "區域網路",
+      "relay": "中繼",
+      "lanToken": "區域網路 + Token",
+      "show": "顯示配對 QR 碼（包含 Token）",
+      "hide": "隱藏配對 QR 碼",
+      "warning": "此 QR 碼包含存取 Token。請僅用可信裝置掃描，勿分享 QR 碼或螢幕截圖。",
+      "noToken": "需要存取 Token 才能顯示配對 QR 碼。"
     }
   },
   "DirectoryBrowser": {

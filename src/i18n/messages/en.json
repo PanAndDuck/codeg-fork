@@ -4088,6 +4088,51 @@
       "permissionDenied": "Permission denied. Try a port above 1024 or run with higher privileges.",
       "addressUnavailable": "The address is not available on this machine",
       "bindFailed": "Failed to bind address"
+    },
+    "relay": {
+      "title": "Remote relay",
+      "description": "Reach this Codeg through a public relay when away from your local network.",
+      "enable": "Enable relay",
+      "url": "Relay URL",
+      "key": "Relay key",
+      "keySet": "Set",
+      "replace": "Replace",
+      "fingerprint": "Certificate fingerprint (optional)",
+      "fingerprintHint": "SHA-256 fingerprint of the relay certificate. Verify it with the relay administrator before trusting it.",
+      "advanced": "Advanced",
+      "publicUrl": "Public URL override",
+      "publicUrlHint": "Leave empty to use the public URL derived from the relay address.",
+      "save": "Save",
+      "saved": "Relay settings saved",
+      "test": "Test connection",
+      "testing": "Testing…",
+      "testSuccess": "Connection successful · RTT {rtt} ms",
+      "untrusted": "This certificate is not trusted. Verify the fingerprint through a trusted channel before saving it.",
+      "trust": "Trust this certificate",
+      "mismatch": "Certificate fingerprint mismatch: possible interception or a replaced relay certificate. Verify with the administrator before changing the saved fingerprint.",
+      "env": "Configuration is supplied by environment variables and cannot be edited here.",
+      "unavailable": "Relay support unavailable in this build",
+      "loading": "Loading…",
+      "retry": "Retry",
+      "failed": "Relay request failed",
+      "invalidFingerprint": "Enter a valid SHA-256 fingerprint (64 hexadecimal digits).",
+      "status": {
+        "disabled": "Disabled",
+        "waiting_for_web_service": "Waiting for web service",
+        "connecting": "Connecting",
+        "connected": "Connected · RTT {rtt} ms · streams {streams}",
+        "backoff": "Retrying in {seconds} s",
+        "error": "Error: {error}"
+      }
+    },
+    "pairing": {
+      "lan": "LAN",
+      "relay": "Relay",
+      "lanToken": "LAN + token",
+      "show": "Show pairing QR (contains token)",
+      "hide": "Hide pairing QR",
+      "warning": "This QR code contains your access token. Only scan it on a trusted device; do not share it or a screenshot.",
+      "noToken": "An access token is required to show the pairing QR."
     }
   },
   "DirectoryBrowser": {
