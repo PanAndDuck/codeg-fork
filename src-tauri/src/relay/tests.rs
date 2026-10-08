@@ -83,6 +83,8 @@ struct FakeRelay {
 }
 
 impl FakeRelay {
+    // tungstenite's handshake callback requires the unboxed ErrorResponse type.
+    #[allow(clippy::result_large_err)]
     async fn start(cert: &Certificate, address: SocketAddr, reject_auth: bool) -> Self {
         let listener = TcpListener::bind(address).await.unwrap();
         let address = listener.local_addr().unwrap();
