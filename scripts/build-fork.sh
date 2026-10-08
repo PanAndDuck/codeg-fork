@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
+unset CODEG_DATA_DIR CODEG_HOME CODEG_STATIC_DIR CODEG_ACP_TMP_ROOT CODEG_TOKEN CODEG_PORT CODEG_HOST
+if env | grep '^CODEG' >/dev/null; then
+  echo "Clear remaining CODEG environment variables before building the fork" >&2
+  exit 1
+fi
 set -euo pipefail
+
+# Builds launched by the official app must never inherit its runtime state.
+CODEG_DATA_DIR=$(mktemp -d)
+CODEG_HOME=$(mktemp -d)
+export CODEG_DATA_DIR CODEG_HOME
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$ROOT"
