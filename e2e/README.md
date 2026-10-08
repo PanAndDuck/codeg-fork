@@ -301,3 +301,30 @@ prove C3's non-loopback ban behavior. The completion-order race remains a produc
 follow-up. Raw server logs can contain test credentials/prompt payloads and stay
 private in disposable state; do not commit them. Proxy logs contain only startup
 mode/ports; control counters contain no token/header/prompt values.
+
+## E1a additional verification
+
+`e1a_scenarios.py --evidence DIRECTORY SCENARIO` runs `latency` (300 lines on
+each route), `paired` (same deltas on direct and relay sockets), `large`,
+`pressure`, `heartbeat`, `no_read`, or `restart`. It uses `--name e1a` by default.
+Run these serially against the E1a environment after the baseline smoke scripts.
+`pressure` sends app Ping and a second Attach on the same throttled socket. Its
+JSON includes byte progress, downstream EOF and sampled relay stream counts.
+Ignore initial stale zero counters until a positive active count is observed.
+For deadline attribution, enable `RUST_LOG=info,codeg_lib::web::ws=debug` on the
+owned server: 30-second write deadlines begin at a blocked write, not prompt
+start, and proxy buffers can delay downstream EOF further.
+
+`e1a_relay_checks.py --evidence DIRECTORY SCENARIO` runs `basics` (temporary
+relay 18490, cap=2), `limiter` (existing en0 source IP to loopback destination),
+`replacement` (temporary server 3096), or `offline` (stops the owned home server;
+run last). No network-interface changes or off-host requests are made.
+The unaffected alternate-IP check uses loopback, which C3 deliberately exempts;
+it does not prove isolation between two non-loopback IP buckets.
+
+`e1a_monitor.py --evidence DIRECTORY` samples explicit owned PIDs until
+`DIRECTORY/monitor.stop` exists. Optional `desktop-owned.json` contains the
+desktop process identity recorded after an absolute-path `open -n` launch.
+`swift e2e/e1a_decode_qr.swift WINDOW.png PRIVATE.json` decodes one actual QR
+with macOS Vision when zbarimg is unavailable. QR screenshots and decoded
+payloads contain the Fork token; keep evidence private and outside Git.
