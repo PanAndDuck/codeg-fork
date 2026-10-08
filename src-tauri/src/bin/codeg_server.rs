@@ -644,7 +644,7 @@ async fn async_main() -> ExitCode {
         state.clone(),
         token.clone(),
         static_dir,
-        shutdown_signal,
+        shutdown_signal.clone(),
     );
 
     // Bind
@@ -705,13 +705,22 @@ async fn async_main() -> ExitCode {
     }
 
     // Start serving
+    codeg_lib::relay::MANAGER
+        .web_started(&state.db.conn, state.emitter.clone(), router.clone())
+        .await;
     use axum::serve::ListenerExt;
-    if let Err(e) = axum::serve(
+    let result = axum::serve(
         listener.tap_io(codeg_lib::web::auth::configure_tcp_stream),
         router.into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
-    .await
-    {
+    .with_graceful_shutdown(async move {
+        shutdown_requested().await;
+        shutdown_signal.trigger();
+        codeg_lib::relay::MANAGER.web_stopped().await;
+    })
+    .await;
+    codeg_lib::relay::MANAGER.web_stopped().await;
+    if let Err(e) = result {
         tracing::error!("[SERVER] Server error: {}", e);
         return ExitCode::from(1);
     }
@@ -719,6 +728,18 @@ async fn async_main() -> ExitCode {
     // (kill_on_drop is the backstop, but this frees their ports promptly).
     codeg_lib::office_watch::stop_all_office_watches();
     ExitCode::SUCCESS
+}
+
+async fn shutdown_requested() {
+    #[cfg(unix)]
+    {
+        let mut terminate =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                .expect("register SIGTERM");
+        tokio::select! { _ = tokio::signal::ctrl_c() => {}, _ = terminate.recv() => {} }
+    }
+    #[cfg(not(unix))]
+    let _ = tokio::signal::ctrl_c().await;
 }
 
 /// Whether whoever runs this server lets it share the screen it runs on with

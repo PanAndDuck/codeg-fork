@@ -50,6 +50,10 @@ pub(crate) fn build_router_with_auth_limiter(
 
     let api = Router::new()
         .route("/health", post(health_check))
+        .route("/get_relay_config", post(handlers::relay::get_relay_config))
+        .route("/update_relay_config", post(handlers::relay::update_relay_config))
+        .route("/get_relay_status", post(handlers::relay::get_relay_status))
+        .route("/test_relay_connection", post(handlers::relay::test_relay_connection))
         // Debug endpoint: operator-facing snapshot of `EventBusMetrics`
         // (emit volume, lag/eviction counts, attach decision counts).
         // Sits behind the same auth middleware as every other route.

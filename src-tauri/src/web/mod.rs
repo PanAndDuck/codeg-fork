@@ -598,6 +598,9 @@ pub(crate) async fn do_start_web_server_with_state(
         static_dir,
         shutdown_signal.clone(),
     );
+    crate::relay::MANAGER
+        .web_started(&app_state.db.conn, app_state.emitter.clone(), router.clone())
+        .await;
 
     let local_addr = listener.local_addr().ok();
     let actual_port = local_addr.map(|a| a.port()).unwrap_or(port);
@@ -686,6 +689,7 @@ pub fn describe_ports(ports: &[u16]) -> String {
 }
 
 pub(crate) async fn do_stop_web_server(state: &WebServerState) {
+    crate::relay::MANAGER.web_stopped().await;
     // The bridge listeners belong to this web service: no API, no grants.
     browser_bridge::configure(None);
     let handle_opt = state.handle.lock().unwrap().take();
@@ -939,11 +943,14 @@ pub(crate) async fn do_start_web_server_tauri(
     handlers::files::purge_upload_staging().await;
 
     let router = router::build_router(
-        app_state,
+        app_state.clone(),
         token.clone(),
         static_dir,
         shutdown_signal.clone(),
     );
+    crate::relay::MANAGER
+        .web_started(&app_state.db.conn, app_state.emitter.clone(), router.clone())
+        .await;
 
     let local_addr = listener.local_addr().ok();
     let actual_port = local_addr.map(|a| a.port()).unwrap_or(port_val);
