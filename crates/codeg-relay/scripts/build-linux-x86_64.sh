@@ -10,7 +10,7 @@ docker run --rm --platform linux/amd64 \
   -v codeg-relay-cargo-registry:/usr/local/cargo/registry \
   -v codeg-relay-cargo-git:/usr/local/cargo/git \
   -w /src/crates/codeg-relay \
-  -e CARGO_BUILD_JOBS=4 \
+  -e CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-4}" \
   -e CARGO_TARGET_DIR=/src/crates/codeg-relay/target/linux-amd64 \
   rust:1-alpine sh -eu -c '
     unset CODEG_DATA_DIR CODEG_HOME CODEG_STATIC_DIR CODEG_ACP_TMP_ROOT CODEG_TOKEN CODEG_PORT CODEG_HOST

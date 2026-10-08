@@ -43,6 +43,8 @@ codeg-relay fingerprint --tls-cert /path/to/cert.pem
 
 ```bash
 crates/codeg-relay/scripts/build-linux-x86_64.sh
+# 内存紧张的共享 Docker VM 可降低并发，默认 4 jobs：
+CARGO_BUILD_JOBS=1 crates/codeg-relay/scripts/build-linux-x86_64.sh
 ```
 
 脚本用 `docker run --rm --platform linux/amd64`、`rust:1-alpine` 构建
