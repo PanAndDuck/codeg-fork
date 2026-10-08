@@ -51,6 +51,7 @@ pub mod pets;
 #[cfg(feature = "tauri-runtime")]
 pub mod preferences;
 pub mod process;
+pub mod relay;
 pub mod supervise;
 mod terminal;
 pub mod turn_timings;
@@ -2205,6 +2206,10 @@ mod tauri_app {
                 web::get_web_service_config,
                 web::update_web_service_config,
                 web::probe_web_service_port,
+                crate::relay::commands::get_relay_config,
+                crate::relay::commands::update_relay_config,
+                crate::relay::commands::get_relay_status,
+                crate::relay::commands::test_relay_connection,
             ])
             .build(context)
             .expect("error while building tauri application")

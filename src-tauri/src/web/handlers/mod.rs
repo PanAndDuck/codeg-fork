@@ -34,6 +34,7 @@ pub mod office_watch_proxy;
 pub mod pet;
 pub mod project_boot;
 pub mod question;
+pub mod relay;
 pub mod quick_messages;
 pub mod science;
 pub mod session_info;

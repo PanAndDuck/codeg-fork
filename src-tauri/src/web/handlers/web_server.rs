@@ -77,7 +77,20 @@ pub async fn stop_web_server(
             "Cannot stop web server from within web mode",
         ));
     }
-    do_stop_web_server(&state.web_server_state).await;
+    // The request may itself use the relay being stopped. Own the entire
+    // shutdown independently so cancelling that HTTP task cannot interrupt it.
+    tokio::spawn(async move {
+        #[cfg(feature = "tauri-runtime")]
+        if let crate::web::event_bridge::EventEmitter::Tauri(app) = &state.emitter {
+            use tauri::Manager;
+            let web_state = app.state::<crate::web::WebServerState>();
+            do_stop_web_server(&web_state).await;
+            return;
+        }
+        do_stop_web_server(&state.web_server_state).await;
+    })
+    .await
+    .map_err(|_| AppCommandError::task_execution_failed("Web service shutdown failed"))?;
     Ok(Json(()))
 }
 
