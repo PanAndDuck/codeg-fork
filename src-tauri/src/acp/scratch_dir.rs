@@ -51,7 +51,7 @@ use std::time::Duration;
 /// confined to this subtree, which is what makes it safe to delete without
 /// asking: `%TEMP%` itself is a namespace shared with every other application,
 /// but nothing except codeg writes here.
-const SCRATCH_NAMESPACE: &str = "codeg-acp";
+const SCRATCH_NAMESPACE: &str = crate::flavor::current().scratch_namespace();
 
 /// Opt out of isolation entirely and let the child inherit the ambient
 /// `TMP`/`TEMP`/`TMPDIR` the way it did before this module existed. Escape

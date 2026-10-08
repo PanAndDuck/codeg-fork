@@ -33,6 +33,11 @@ pub async fn perform_app_update(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppUpdateStateHandle>,
 ) -> Result<AppUpdateState, AppCommandError> {
+    if !crate::flavor::current().updater_enabled() {
+        return Err(AppCommandError::invalid_input(
+            "Updates are disabled in Codeg-Fork",
+        ));
+    }
     let handle = state.inner().clone();
     let emitter = EventEmitter::Tauri(app.clone());
 

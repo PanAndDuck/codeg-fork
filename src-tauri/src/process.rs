@@ -569,7 +569,7 @@ pub(crate) fn prepend_to_path(dir: &std::path::Path) {
 /// Used as a fallback when `npm install -g` fails with EACCES because the
 /// system global prefix (e.g. `/usr/local/lib/node_modules/`) is not writable.
 pub(crate) fn user_npm_prefix() -> Option<PathBuf> {
-    dirs::home_dir().map(|h| h.join(".codeg").join("npm-global"))
+    crate::paths::user_codeg_home_dir().map(|h| h.join("npm-global"))
 }
 
 /// Ensure the user-local npm prefix `bin/` directory is in `PATH` so that

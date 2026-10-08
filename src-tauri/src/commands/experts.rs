@@ -47,7 +47,6 @@ use crate::models::agent::AgentType;
 
 static EXPERTS_BUNDLE: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/experts");
 
-const CENTRAL_DIR_NAME: &str = ".codeg";
 const CENTRAL_SKILLS_SUBDIR: &str = "skills";
 const MANIFEST_FILE: &str = ".manifest.json";
 const EXPERTS_TOML: &str = "experts.toml";
@@ -195,13 +194,9 @@ fn mutation_lock() -> &'static Mutex<()> {
 
 // ─── Paths ──────────────────────────────────────────────────────────────
 
-fn home_dir_or_default() -> PathBuf {
-    dirs::home_dir().unwrap_or_else(|| PathBuf::from("."))
-}
-
 pub(crate) fn central_experts_dir() -> PathBuf {
-    home_dir_or_default()
-        .join(CENTRAL_DIR_NAME)
+    crate::paths::user_codeg_home_dir()
+        .unwrap_or_else(|| PathBuf::from(".").join(crate::flavor::current().home_dir_name()))
         .join(CENTRAL_SKILLS_SUBDIR)
 }
 

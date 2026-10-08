@@ -1390,7 +1390,7 @@ pub async fn open_pet_window(
 
     let url = WebviewUrl::App(format!("pet?petId={pet_id}").into());
     let mut builder = WebviewWindowBuilder::new(&app, PET_WINDOW_LABEL, url)
-        .title("codeg pet")
+        .title(format!("{} pet", crate::flavor::current().product_name()))
         .inner_size(PET_BASE_WIDTH * scale, PET_BASE_HEIGHT * scale)
         .min_inner_size(PET_BASE_WIDTH * 0.5, PET_BASE_HEIGHT * 0.5)
         .max_inner_size(PET_BASE_WIDTH * 3.0, PET_BASE_HEIGHT * 3.0)
@@ -1723,7 +1723,7 @@ fn open_pet_panel_window(app: &AppHandle) -> Result<(), AppCommandError> {
 
     let url = WebviewUrl::App("pet-panel".into());
     let builder = WebviewWindowBuilder::new(app, PET_PANEL_LABEL, url)
-        .title("codeg sessions")
+        .title(format!("{} sessions", crate::flavor::current().product_name()))
         .inner_size(PET_PANEL_WIDTH, PET_PANEL_DEFAULT_HEIGHT)
         .position(panel_x, panel_y)
         .resizable(false)
@@ -2428,7 +2428,7 @@ pub fn install_tray_icon(
         .build()?;
 
     let mut builder = TrayIconBuilder::with_id(TRAY_ICON_ID)
-        .tooltip("Codeg")
+        .tooltip(crate::flavor::current().display_name())
         .menu(&menu)
         // `false` is required for `on_tray_icon_event::Click` to fire on
         // every platform we ship: the default `true` causes the OS to

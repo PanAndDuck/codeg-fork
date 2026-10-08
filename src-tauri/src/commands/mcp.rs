@@ -3223,6 +3223,11 @@ fn require_complete_scan(scan: &LocalMcpScan) -> Result<(), AppCommandError> {
 }
 
 fn upsert_server_for_app(app: McpAppType, id: &str, spec: &Value) -> Result<(), AppCommandError> {
+    if !crate::flavor::current().shared_config_writes_enabled() {
+        return Err(AppCommandError::invalid_input(
+            "Global agent MCP writes are disabled in Codeg-Fork",
+        ));
+    }
     match app {
         McpAppType::ClaudeCode => upsert_claude_server(id, spec),
         McpAppType::Codex => upsert_codex_server(id, spec),
@@ -4327,6 +4332,11 @@ fn remove_hermes_server(id: &str) -> Result<bool, AppCommandError> {
 }
 
 fn remove_server_for_app(app: McpAppType, id: &str) -> Result<bool, AppCommandError> {
+    if !crate::flavor::current().shared_config_writes_enabled() {
+        return Err(AppCommandError::invalid_input(
+            "Global agent MCP writes are disabled in Codeg-Fork",
+        ));
+    }
     match app {
         McpAppType::ClaudeCode => remove_claude_server(id),
         McpAppType::Codex => remove_codex_server(id),

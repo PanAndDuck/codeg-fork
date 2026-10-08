@@ -7,7 +7,7 @@
 
 use std::path::{Path, PathBuf};
 
-const CODEG_DIR_NAME: &str = ".codeg";
+const CODEG_DIR_NAME: &str = crate::flavor::current().home_dir_name();
 const PETS_DIR_NAME: &str = "pets";
 const BROWSER_PROFILES_DIR_NAME: &str = "browser-profiles";
 const UPLOADS_DIR_NAME: &str = "uploads";
@@ -15,6 +15,87 @@ const LOGS_DIR_NAME: &str = "logs";
 const TURN_TIMINGS_DIR_NAME: &str = "turn-timings";
 const ACP_TRANSCRIPTS_DIR_NAME: &str = "acp-transcripts";
 const BACKGROUNDS_DIR_NAME: &str = "backgrounds";
+
+/// Discard official-state overrides inherited when the official app launches
+/// a fork. Run before preferences, logging, credentials, or any worker thread.
+/// Custom temporary roots and the Official flavor are left unchanged.
+///
+/// # Safety
+/// The caller must be at process startup, before any other threads exist.
+pub unsafe fn isolate_fork_environment() {
+    if crate::flavor::current() != crate::flavor::Flavor::Fork {
+        return;
+    }
+    let official = crate::flavor::Flavor::Official;
+    let mut protected = Vec::new();
+    if let Some(home) = dirs::home_dir() {
+        protected.push(home.join(official.home_dir_name()));
+    }
+    if let Some(data) = dirs::data_dir() {
+        protected.push(data.join(official.app_identifier()));
+        protected.push(data.join(official.server_data_dir_name()));
+    }
+    if let Some(cache) = dirs::cache_dir() {
+        protected.push(cache.join(official.app_identifier()));
+    }
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
+    for key in [
+        "CODEG_HOME",
+        "CODEG_DATA_DIR",
+        "CODEG_STATIC_DIR",
+        "CODEG_ACP_TMP_ROOT",
+    ] {
+        if std::env::var_os(key).is_some_and(|value| {
+            !value.is_empty() && overlaps_official_root(Path::new(&value), &cwd, &protected)
+        }) {
+            // SAFETY: the caller guarantees single-threaded process startup.
+            unsafe { std::env::remove_var(key) };
+        }
+    }
+}
+
+fn overlaps_official_root(path: &Path, cwd: &Path, roots: &[PathBuf]) -> bool {
+    fn normalize(path: &Path) -> PathBuf {
+        let mut result = PathBuf::new();
+        for component in path.components() {
+            match component {
+                std::path::Component::CurDir => {}
+                std::path::Component::ParentDir => {
+                    result.pop();
+                }
+                other => result.push(other.as_os_str()),
+            }
+        }
+        result
+    }
+    let absolute = normalize(&cwd.join(path));
+    roots.iter().any(|root| {
+        let root = normalize(root);
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        {
+            let mut components = absolute.components();
+            root.components().all(|part| {
+                components.next().is_some_and(|value| {
+                    value
+                        .as_os_str()
+                        .to_string_lossy()
+                        .eq_ignore_ascii_case(&part.as_os_str().to_string_lossy())
+                })
+            })
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        absolute.starts_with(root)
+    })
+}
+
+/// Legacy home-only consumers keep their original Official default. Explicit
+/// CODEG_HOME also isolates early preferences, npm installs and central skills.
+pub fn user_codeg_home_dir() -> Option<PathBuf> {
+    if let Some(custom) = std::env::var_os("CODEG_HOME").filter(|s| !s.is_empty()) {
+        return Some(PathBuf::from(custom));
+    }
+    dirs::home_dir().map(|h| h.join(CODEG_DIR_NAME))
+}
 
 /// `$CODEG_HOME` if set (and non-empty), else `~/.codeg/`.
 ///
@@ -272,6 +353,45 @@ fn strip_prefix_ignore_ascii_case<'a>(text: &'a str, prefix: &str) -> Option<&'a
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inherited_official_roots_are_blocked_without_reading_them() {
+        let cwd = Path::new("/Users/test");
+        let roots = vec![
+            cwd.join(".codeg"),
+            cwd.join("Library/Application Support/app.codeg"),
+        ];
+        for value in [
+            ".codeg",
+            ".codeg/uploads",
+            "tmp/../.codeg",
+            "Library/Application Support/app.codeg",
+            "/Users/test/Library/Application Support/app.codeg/logs",
+        ] {
+            assert!(
+                overlaps_official_root(Path::new(value), cwd, &roots),
+                "{value}"
+            );
+        }
+        for value in [
+            ".codeg-fork",
+            ".codeg-fork/uploads",
+            "/tmp/test-home",
+            "Library/Application Support/app.codeg.fork",
+            "Library/Application Support/app.codeg.fork/logs",
+        ] {
+            assert!(
+                !overlaps_official_root(Path::new(value), cwd, &roots),
+                "{value}"
+            );
+        }
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        assert!(overlaps_official_root(
+            Path::new(".CODEG/logs"),
+            cwd,
+            &roots
+        ));
+    }
 
     /// The shape `fs::canonicalize` hands back on Windows, and the one that
     /// broke image attachments in issue #392.

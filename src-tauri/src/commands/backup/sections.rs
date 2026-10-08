@@ -104,10 +104,9 @@ pub const MANAGED_SECTIONS: &[ManagedSection] = &[
         // id-scoped and never a wipe), so replacing the tree self-heals those;
         // what a replace can drop is a hand-made skill the backup predates —
         // the same semantics as `uploads`, and it survives in the safety
-        // snapshot. Note `central_experts_dir()` resolves against the real home
-        // and does NOT honor `CODEG_HOME`/`CODEG_DATA_DIR`; changing that would
-        // relocate every existing user's skill library, so it stays as-is and
-        // this entry is simply environment-independent.
+        // snapshot. `central_experts_dir()` follows the selected flavor home
+        // and an explicit CODEG_HOME (never CODEG_DATA_DIR). The default
+        // Official skill library remains in ~/.codeg/skills.
         id: "skills",
         kind: SectionKind::Dir,
         policy: SectionPolicy::AlwaysReplace,

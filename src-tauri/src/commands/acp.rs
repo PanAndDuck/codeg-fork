@@ -9122,6 +9122,12 @@ pub(crate) fn scoped_skill_dirs(
     scope: AgentSkillScope,
     workspace_path: Option<&str>,
 ) -> Result<Vec<PathBuf>, AcpError> {
+    if scope == AgentSkillScope::Global && !crate::flavor::current().shared_config_writes_enabled()
+    {
+        return Err(AcpError::protocol(
+            "Global agent skills are disabled in Codeg-Fork",
+        ));
+    }
     let spec = skill_storage_spec(agent_type).ok_or_else(|| {
         AcpError::protocol(format!(
             "{agent_type} skills are not supported in Settings yet"
@@ -13656,7 +13662,7 @@ pub async fn acp_list_agent_skills(
     let mut locations = Vec::new();
     let mut skills_by_key: BTreeMap<String, AgentSkillItem> = BTreeMap::new();
 
-    for dir in &spec.global_dirs {
+    for dir in spec.global_dirs.iter().filter(|_| crate::flavor::current().shared_config_writes_enabled()) {
         locations.push(AgentSkillLocation {
             scope: AgentSkillScope::Global,
             path: dir.to_string_lossy().to_string(),

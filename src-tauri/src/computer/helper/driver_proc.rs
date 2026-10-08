@@ -102,11 +102,13 @@ pub fn helper_data_dir() -> Option<PathBuf> {
         } else {
             home.join(".local").join("share")
         };
-        Some(base.join("app.codeg").join("computer-helper"))
+        Some(base.join(crate::flavor::current().app_identifier()).join("computer-helper"))
     }
     #[cfg(windows)]
     {
-        dirs::data_local_dir().map(|d| d.join("app.codeg").join("computer-helper"))
+        dirs::data_local_dir().map(|d| {
+            d.join(crate::flavor::current().app_identifier()).join("computer-helper")
+        })
     }
 }
 

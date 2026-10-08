@@ -173,7 +173,7 @@ fn window(app: &AppHandle) -> Option<WebviewWindow> {
     }
     let built =
         WebviewWindowBuilder::new(app, MARKER_LABEL, WebviewUrl::App("computer-marker".into()))
-            .title("codeg")
+            .title(crate::flavor::current().product_name())
             .inner_size(SIDE, SIDE)
             .resizable(false)
             .decorations(false)

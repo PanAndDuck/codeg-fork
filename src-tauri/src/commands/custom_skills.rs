@@ -596,6 +596,11 @@ pub async fn custom_import_from_agent(
     agent_type: AgentType,
     ids: Vec<String>,
 ) -> Result<Vec<CustomImportResult>, CustomSkillsError> {
+    if !crate::flavor::current().shared_config_writes_enabled() {
+        return Err(CustomSkillsError::Metadata(
+            "Global agent skill imports are disabled in Codeg-Fork".into(),
+        ));
+    }
     let _guard = mutation_lock().lock().await;
     let spec = skill_storage_spec(agent_type)
         .ok_or(CustomSkillsError::UnsupportedAgent(agent_type))?;
