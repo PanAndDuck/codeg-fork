@@ -1,5 +1,6 @@
 "use client"
 
+import { PRODUCT_NAME } from "@/lib/flavor"
 import { BrowserEvalConfirm } from "@/components/browser/browser-eval-confirm"
 import { BrowserEventsBridge } from "@/components/browser/browser-events-bridge"
 import { BrowserScreenshotMarkupHost } from "@/components/browser/browser-screenshot-markup"
@@ -106,7 +107,9 @@ function WorkspaceDocumentTitle() {
   const { activeFolder } = useActiveFolder()
 
   useEffect(() => {
-    document.title = activeFolder ? `${activeFolder.name} - codeg` : "codeg"
+    document.title = activeFolder
+      ? `${activeFolder.name} - ${PRODUCT_NAME}`
+      : PRODUCT_NAME
   }, [activeFolder])
 
   return null

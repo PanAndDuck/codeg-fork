@@ -108,7 +108,7 @@ fn window(app: &AppHandle) -> Option<WebviewWindow> {
         INDICATOR_LABEL,
         WebviewUrl::App("computer-indicator".into()),
     )
-    .title("codeg")
+    .title(crate::flavor::current().product_name())
     .inner_size(WIDTH, HEIGHT)
     .resizable(false)
     .decorations(false)

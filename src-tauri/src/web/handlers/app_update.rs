@@ -113,6 +113,11 @@ fn trial_seconds_value() -> u64 {
 
 #[cfg(not(feature = "tauri-runtime"))]
 fn ensure_supported() -> Result<(), AppCommandError> {
+    if !crate::flavor::current().updater_enabled() {
+        return Err(AppCommandError::invalid_input(
+            "Updates are disabled in Codeg-Fork",
+        ));
+    }
     if cfg!(target_os = "windows") {
         return Err(AppCommandError::invalid_input(
             "In-place server self-update is not supported on Windows yet",

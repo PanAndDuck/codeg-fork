@@ -1,5 +1,6 @@
 "use client"
 
+import { PRODUCT_NAME } from "@/lib/flavor"
 import { Suspense, useCallback, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { useTranslations } from "next-intl"
@@ -84,7 +85,7 @@ function PushPageInner() {
   const pageTitle = folder ? `${t("title")} · ${folder.name}` : t("title")
 
   useEffect(() => {
-    document.title = `${pageTitle} - codeg`
+    document.title = `${pageTitle} - ${PRODUCT_NAME}`
   }, [pageTitle])
 
   return (

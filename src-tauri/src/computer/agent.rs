@@ -26,7 +26,7 @@ use super::protocol::RawApp;
 /// codeg's own bundle identifier (`tauri.conf.json`), matched on any process
 /// so a second codeg — a development build next to the installed one — is as
 /// out of reach as this one.
-pub const CODEG_BUNDLE_ID: &str = "app.codeg";
+pub const CODEG_BUNDLE_ID: &str = crate::flavor::current().app_identifier();
 
 /// The file names codeg's executable goes by, matched on any process's path
 /// for the same reason, where an application has no bundle identifier to
@@ -524,11 +524,10 @@ impl SelfIdentity {
         if app.pid == self.pid {
             return true;
         }
-        if app
-            .bundle_id
-            .as_deref()
-            .is_some_and(|b| b.eq_ignore_ascii_case(CODEG_BUNDLE_ID))
-        {
+        if app.bundle_id.as_deref().is_some_and(|b| {
+            b.eq_ignore_ascii_case(CODEG_BUNDLE_ID)
+                || b.eq_ignore_ascii_case(crate::flavor::Flavor::Official.app_identifier())
+        }) {
             return true;
         }
         let Some(path) = app.path.as_deref().filter(|s| !s.is_empty()) else {

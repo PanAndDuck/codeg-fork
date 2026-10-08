@@ -145,7 +145,9 @@ fn server_self_update_supported() -> bool {
     // .exe and the standalone re-exec port rebind have not been validated on a
     // real Windows host. Only Linux/macOS are supported for now. (The desktop
     // Windows app is unaffected — it updates via tauri-plugin-updater.)
-    !cfg!(target_os = "windows") && crate::update::install::asset_basename().is_some()
+    crate::flavor::current().updater_enabled()
+        && !cfg!(target_os = "windows")
+        && crate::update::install::asset_basename().is_some()
 }
 
 #[cfg(feature = "tauri-runtime")]
@@ -155,7 +157,7 @@ fn server_rollback_available() -> bool {
 
 #[cfg(not(feature = "tauri-runtime"))]
 fn server_rollback_available() -> bool {
-    crate::update::install::rollback_available()
+    crate::flavor::current().updater_enabled() && crate::update::install::rollback_available()
 }
 
 #[cfg(feature = "tauri-runtime")]
@@ -177,16 +179,19 @@ pub async fn check_app_update() -> Result<Json<AppUpdateCheckResult>, AppCommand
     use crate::update::{runtime, version};
 
     let current_version = env!("CARGO_PKG_VERSION").to_string();
-    let manifest = version::fetch_latest_manifest().await?;
-
-    let update = if version::is_newer(&manifest.version, &current_version) {
-        Some(AppUpdateInfo {
-            version: version::trim_v_prefix(&manifest.version).to_string(),
-            body: manifest.notes.unwrap_or_default(),
-            date: manifest.pub_date,
-        })
-    } else {
+    let update = if !crate::flavor::current().updater_enabled() {
         None
+    } else {
+        let manifest = version::fetch_latest_manifest().await?;
+        if version::is_newer(&manifest.version, &current_version) {
+            Some(AppUpdateInfo {
+                version: version::trim_v_prefix(&manifest.version).to_string(),
+                body: manifest.notes.unwrap_or_default(),
+                date: manifest.pub_date,
+            })
+        } else {
+            None
+        }
     };
 
     Ok(Json(AppUpdateCheckResult {

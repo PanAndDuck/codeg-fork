@@ -1446,7 +1446,7 @@ impl AgentConnection {
 /// directory can't be created: diagnostics must never block a connection.
 fn codex_app_server_log_dir() -> Option<String> {
     let dir = dirs::cache_dir()?
-        .join("app.codeg")
+        .join(crate::flavor::current().app_identifier())
         .join("acp-logs")
         .join("codex-acp");
     std::fs::create_dir_all(&dir).ok()?;
@@ -2134,7 +2134,9 @@ async fn build_agent(
                 // The report is for the settings panel, which runs the same
                 // sync at save time; here it is already in the log and must
                 // never block a launch, so it is deliberately dropped.
-                let _ = sync_antigravity_settings_file(runtime_env);
+                if crate::flavor::current().shared_config_writes_enabled() {
+                    let _ = sync_antigravity_settings_file(runtime_env);
+                }
             }
             let env_key_list: Vec<&str> = merged_env.iter().map(|(k, _)| k.as_str()).collect();
             if !merged_env.is_empty() {
@@ -2341,7 +2343,7 @@ pub async fn spawn_agent_connection(
     // Align ~/.hermes/.env's base-URL var with config.yaml's model.base_url so
     // Hermes' auxiliary tasks (title generation, compression, …) resolve the
     // same endpoint as the main conversation. Best-effort; never blocks launch.
-    if agent_type == AgentType::Hermes {
+    if agent_type == AgentType::Hermes && crate::flavor::current().shared_config_writes_enabled() {
         crate::commands::acp::reconcile_hermes_runtime_env(&runtime_env);
     }
 

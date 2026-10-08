@@ -59,6 +59,7 @@ const BINARIES_DIR = join(SRC_TAURI, "binaries")
 const BIN_NAMES = ["codeg-mcp", "codeg-computer-helper"]
 // The features their binary targets require (Cargo.toml).
 const FEATURES = "mcp-bin,computer-helper"
+const IS_FORK = process.env.CODEG_FLAVOR === "fork"
 const HELPER = "codeg-computer-helper"
 const HELPER_APP = join(BINARIES_DIR, `${HELPER}.app`)
 
@@ -103,10 +104,23 @@ function stageHelperApp(built) {
   const version = JSON.parse(
     readFileSync(join(SRC_TAURI, "tauri.conf.json"), "utf8")
   ).version
-  const plist = readFileSync(
+  let plist = readFileSync(
     join(SRC_TAURI, "macos", `${HELPER}.plist`),
     "utf8"
   ).replaceAll("{{version}}", version)
+  if (IS_FORK) {
+    plist = plist.replaceAll(
+      "app.codeg.computer-helper",
+      "app.codeg.fork.computer-helper"
+    )
+    // Keep CFBundleExecutable and the nested bundle filename stable.
+    for (const key of ["CFBundleName", "CFBundleDisplayName"]) {
+      plist = plist.replace(
+        `<key>${key}</key>\n\t<string>${HELPER}</string>`,
+        `<key>${key}</key>\n\t<string>Codeg-Fork Computer Helper</string>`
+      )
+    }
+  }
   rmSync(HELPER_APP, { recursive: true, force: true })
   const contents = join(HELPER_APP, "Contents")
   mkdirSync(join(contents, "MacOS"), { recursive: true })
@@ -145,7 +159,7 @@ function main() {
   const isWindows = target.includes("windows")
   const ext = isWindows ? ".exe" : ""
 
-  log(`target triple: ${target}`)
+  log(`target triple: ${target}; flavor: ${IS_FORK ? "fork" : "official"}`)
   log(
     `building ${BIN_NAMES.join(", ")} (--release --no-default-features --features ${FEATURES})`
   )
@@ -169,7 +183,7 @@ function main() {
       "--target",
       target,
     ],
-    { stdio: "inherit", cwd: SRC_TAURI }
+    { stdio: "inherit", cwd: SRC_TAURI, env: { ...process.env } }
   )
 
   mkdirSync(BINARIES_DIR, { recursive: true })

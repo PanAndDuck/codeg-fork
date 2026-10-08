@@ -10,6 +10,8 @@ use codeg_lib::web::{
 };
 
 fn main() -> ExitCode {
+    // SAFETY: first operation, before every startup mode and its threads.
+    unsafe { codeg_lib::paths::isolate_fork_environment() };
     // Capture our own executable path before anything can rename it (an
     // in-place upgrade swaps the binary mid-run; `current_exe()` would then
     // resolve to a `" (deleted)"` path on Linux). Cheap, single-shot.
@@ -146,7 +148,7 @@ async fn async_main() -> ExitCode {
     let port: u16 = std::env::var("CODEG_PORT")
         .ok()
         .and_then(|v| v.parse().ok())
-        .unwrap_or(3080);
+        .unwrap_or(codeg_lib::flavor::current().default_web_port());
     let host = std::env::var("CODEG_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
     // CODEG_DATA_DIR was already resolved and absolutized in `main()` so
     // all path resolvers across the process see the same root. Read it
@@ -755,8 +757,8 @@ fn beside_the_desktop_app(exe: &std::path::Path) -> bool {
 
 fn default_data_dir() -> PathBuf {
     dirs::data_dir()
-        .map(|d| d.join("codeg"))
-        .unwrap_or_else(|| PathBuf::from(".codeg-data"))
+        .map(|d| d.join(codeg_lib::flavor::current().server_data_dir_name()))
+        .unwrap_or_else(|| PathBuf::from(codeg_lib::flavor::current().server_data_fallback()))
 }
 
 #[cfg(test)]

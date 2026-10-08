@@ -1,3 +1,4 @@
+import { NOTIFICATION_PRODUCT_NAME } from "@/lib/flavor"
 import { formatConversationTitle } from "@/lib/conversation-title"
 import type { NotifyPayload } from "@/lib/desktop-notification"
 import { useAppWorkspaceStore } from "@/stores/app-workspace-store"
@@ -90,7 +91,9 @@ export function sessionNotificationPayload(
     connectionConversationId,
     activeFolderName
   )
-  const folderTitle = folderName ? `${folderName} - Codeg` : "Codeg"
+  const folderTitle = folderName
+    ? `${folderName} - ${NOTIFICATION_PRODUCT_NAME}`
+    : NOTIFICATION_PRODUCT_NAME
   if (!sessionTitle) return { title: folderTitle, ...content }
   return {
     title: sessionTitle,

@@ -10,6 +10,8 @@
 #![cfg_attr(debug_assertions, allow(linker_messages))]
 
 fn main() {
+    // SAFETY: before logging, the GUI runtime, or credential subprocess work.
+    unsafe { codeg_lib::paths::isolate_fork_environment() };
     // When called as a git credential helper, handle it immediately and exit.
     // This avoids starting the full Tauri GUI runtime.
     if std::env::args().any(|a| a == "--credential-helper") {

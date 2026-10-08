@@ -74,10 +74,15 @@ impl FocusTarget {
 /// Parse a `codeg:` / `codeg://` URL. Returns `None` for a different scheme
 /// or for in-app mention badges that must not navigate the workspace.
 pub fn parse_deep_link(raw: &str) -> Option<DeepLink> {
+    parse_deep_link_for_flavor(raw, crate::flavor::current())
+}
+
+fn parse_deep_link_for_flavor(raw: &str, flavor: crate::flavor::Flavor) -> Option<DeepLink> {
     let raw = raw.trim();
-    let rest = raw
-        .strip_prefix("codeg://")
-        .or_else(|| raw.strip_prefix("codeg:"))?;
+    let (scheme, rest) = raw.split_once(':')?;
+    if scheme != flavor.deep_link_scheme() {
+        return None;
+    }
     let rest = rest.trim_start_matches('/');
     if rest.is_empty() {
         return Some(DeepLink::Open);
@@ -346,6 +351,40 @@ mod tests {
     use crate::db::test_helpers::{fresh_in_memory_db, seed_conversation, seed_folder};
     use crate::models::AgentType;
     use sea_orm::{ActiveModelTrait, EntityTrait, Set};
+
+    fn parse_deep_link(raw: &str) -> Option<DeepLink> {
+        parse_deep_link_for_flavor(raw, crate::flavor::Flavor::Official)
+    }
+
+    #[test]
+    fn fork_os_scheme_is_separate_from_content_links() {
+        use crate::flavor::Flavor;
+        assert_eq!(
+            parse_deep_link_for_flavor("codeg-fork://open", Flavor::Fork),
+            Some(DeepLink::Open)
+        );
+        assert_eq!(
+            parse_deep_link_for_flavor("codeg://open", Flavor::Fork),
+            None
+        );
+        assert_eq!(
+            parse_deep_link_for_flavor("codeg-fork://session/42", Flavor::Fork),
+            Some(DeepLink::Session {
+                session_ref: "42".into()
+            })
+        );
+        assert_eq!(
+            parse_deep_link_for_flavor("codeg-fork://open", Flavor::Official),
+            None
+        );
+        assert_eq!(
+            super::parse_deep_link(&format!(
+                "{}://open",
+                crate::flavor::current().deep_link_scheme()
+            )),
+            Some(DeepLink::Open)
+        );
+    }
 
     #[test]
     fn parses_session_numeric_id() {

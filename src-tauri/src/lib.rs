@@ -32,6 +32,7 @@ pub mod commands;
 pub mod computer;
 pub mod db;
 pub mod deep_link;
+pub mod flavor;
 pub mod folder_links;
 pub mod forge;
 pub mod git_credential;
@@ -503,6 +504,12 @@ mod tauri_app {
 
     #[cfg_attr(mobile, tauri::mobile_entry_point)]
     pub fn run() {
+        let context = tauri::generate_context!();
+        assert_eq!(
+            context.config().identifier,
+            crate::flavor::current().app_identifier(),
+            "CODEG_FLAVOR and Tauri config must select the same install identity"
+        );
         // Ahead of the logging init, which is otherwise the first statement
         // here: `init_desktop` builds a `tracing_appender::non_blocking` file
         // writer, and that spawns a worker thread. `set_var` is UB once any
@@ -552,6 +559,20 @@ mod tauri_app {
             crate::deep_link::handle_argv(app, &argv);
         }));
 
+        let builder = if crate::flavor::current().updater_enabled() {
+            builder.plugin(tauri_plugin_updater::Builder::new().build())
+        } else {
+            builder
+        };
+        let builder = if crate::flavor::current().shared_config_writes_enabled() {
+            builder.plugin(tauri_plugin_autostart::init(
+                tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+                None,
+            ))
+        } else {
+            builder
+        };
+
         builder
             // Persist every window flag EXCEPT decorations. Decorations are a
             // per-platform decision made by `apply_platform_window_style`
@@ -579,7 +600,6 @@ mod tauri_app {
             .plugin(tauri_plugin_deep_link::init())
             .plugin(tauri_plugin_opener::init())
             .plugin(tauri_plugin_dialog::init())
-            .plugin(tauri_plugin_updater::Builder::new().build())
             .plugin(tauri_plugin_process::init())
             .plugin(tauri_plugin_notification::init())
             // Computer use's stop shortcut. Registered from Rust alone; no
@@ -615,10 +635,6 @@ mod tauri_app {
             //   * macOS builds the plist with a bare `<string>{path}</string>`
             //     and no XML escaping, so an install path containing `&`, `<`
             //     or `>` yields a malformed plist and autostart silently fails.
-            .plugin(tauri_plugin_autostart::init(
-                tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-                None,
-            ))
             .manage(ConnectionManager::new())
             .manage(crate::browser::BrowserRegistry::default())
             .manage(crate::browser::egress::EgressRegistry::default())
@@ -1379,7 +1395,7 @@ mod tauri_app {
                 if app.get_webview_window("main").is_none() {
                     let url = tauri::WebviewUrl::App(workspace_path.into());
                     let builder = tauri::WebviewWindowBuilder::new(app, "main", url)
-                        .title("Codeg")
+                        .title(crate::flavor::current().display_name())
                         .inner_size(1260.0, 860.0)
                         .min_inner_size(400.0, 600.0)
                         .visible(restore.show_local());
@@ -2190,7 +2206,7 @@ mod tauri_app {
                 web::update_web_service_config,
                 web::probe_web_service_port,
             ])
-            .build(tauri::generate_context!())
+            .build(context)
             .expect("error while building tauri application")
             .run(|app, event| match event {
                 // Some quits only ever reach `Exit`; see `shut_down`.

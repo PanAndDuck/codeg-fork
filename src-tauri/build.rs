@@ -1,4 +1,5 @@
 fn main() {
+    println!("cargo:rerun-if-env-changed=CODEG_FLAVOR");
     fingerprint_helper_sources();
     #[cfg(feature = "tauri-runtime")]
     {
@@ -35,7 +36,11 @@ fn fingerprint_helper_sources() {
     }
 
     let mut files = Vec::new();
-    for source in ["src/computer", "src/bin/codeg_computer_helper.rs"] {
+    for source in [
+        "src/computer",
+        "src/bin/codeg_computer_helper.rs",
+        "src/flavor.rs",
+    ] {
         println!("cargo:rerun-if-changed={source}");
         collect(Path::new(source), &mut files);
     }
@@ -52,6 +57,10 @@ fn fingerprint_helper_sources() {
         feed(&[0]);
         feed(&std::fs::read(file).unwrap_or_default());
         feed(&[0]);
+    }
+    // An ad-hoc helper from the other flavor must also fail the source check.
+    if std::env::var("CODEG_FLAVOR").as_deref() == Ok("fork") {
+        feed(b"CODEG_FLAVOR=fork");
     }
     println!("cargo:rustc-env=CODEG_COMPUTER_SOURCE={hash:016x}");
 }

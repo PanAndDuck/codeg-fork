@@ -14,6 +14,8 @@ use codeg_lib::computer::helper::{run, EXIT_FAILED};
 use codeg_lib::computer::protocol::{OsPermission, PermissionAsked, REQUEST_PERMISSION_ARG};
 
 fn main() {
+    // SAFETY: before helper initialization or permission handling.
+    unsafe { codeg_lib::paths::isolate_fork_environment() };
     let mut args = std::env::args().skip(1);
     if args.next().as_deref() == Some(REQUEST_PERMISSION_ARG) {
         std::process::exit(request_permission(args.next().as_deref()));

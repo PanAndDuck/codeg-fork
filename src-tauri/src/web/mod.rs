@@ -31,7 +31,7 @@ use crate::db::service::app_metadata_service;
 const WEB_SERVICE_TOKEN_KEY: &str = "web_service_token";
 const WEB_SERVICE_PORT_KEY: &str = "web_service_port";
 const WEB_SERVICE_AUTO_START_KEY: &str = "web_service_auto_start";
-pub const DEFAULT_WEB_SERVICE_PORT: u16 = 3080;
+pub const DEFAULT_WEB_SERVICE_PORT: u16 = crate::flavor::current().default_web_port();
 
 pub struct WebServerState {
     handle: Mutex<Option<tokio::task::JoinHandle<()>>>,

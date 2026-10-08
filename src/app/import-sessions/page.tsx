@@ -1,5 +1,6 @@
 "use client"
 
+import { PRODUCT_NAME } from "@/lib/flavor"
 import { Suspense, useCallback, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { useTranslations } from "next-intl"
@@ -30,7 +31,7 @@ function ImportSessionsPageInner() {
   }, [])
 
   useEffect(() => {
-    document.title = `${t("title")} - codeg`
+    document.title = `${t("title")} - ${PRODUCT_NAME}`
   }, [t])
 
   return (
