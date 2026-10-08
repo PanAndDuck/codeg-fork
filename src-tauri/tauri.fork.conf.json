@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Codeg-Fork",
+  "identifier": "app.codeg.fork",
+  "bundle": {
+    "createUpdaterArtifacts": false
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["codeg-fork"]
+      }
+    },
+    "updater": {
+      "endpoints": [],
+      "pubkey": ""
+    }
+  }
+}
