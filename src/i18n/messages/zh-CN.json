@@ -4088,6 +4088,51 @@
       "permissionDenied": "权限不足，请使用 1024 以上的端口，或以更高权限运行",
       "addressUnavailable": "该地址在本机不可用",
       "bindFailed": "绑定地址失败"
+    },
+    "relay": {
+      "title": "远程中继",
+      "description": "通过公网中继，在局域网外访问此 Codeg。",
+      "enable": "启用中继",
+      "url": "中继 URL",
+      "key": "中继密钥",
+      "keySet": "已设置",
+      "replace": "替换",
+      "fingerprint": "证书指纹（可选）",
+      "fingerprintHint": "中继证书的 SHA-256 指纹。信任前请向中继管理员核对。",
+      "advanced": "高级设置",
+      "publicUrl": "公网 URL 覆盖",
+      "publicUrlHint": "留空则使用根据中继地址推导的公网 URL。",
+      "save": "保存",
+      "saved": "中继设置已保存",
+      "test": "测试连接",
+      "testing": "测试中…",
+      "testSuccess": "连接成功 · RTT {rtt} 毫秒",
+      "untrusted": "此证书尚未受信任。保存前请通过可信渠道核对指纹。",
+      "trust": "信任此证书",
+      "mismatch": "证书指纹不匹配：可能存在中间人攻击，或中继证书已更换。修改已保存的指纹前，请向管理员核实。",
+      "env": "配置由环境变量提供，无法在此编辑。",
+      "unavailable": "此版本暂不支持远程中继",
+      "loading": "加载中…",
+      "retry": "重试",
+      "failed": "中继请求失败",
+      "invalidFingerprint": "请输入有效的 SHA-256 指纹（64 位十六进制字符）。",
+      "status": {
+        "disabled": "已禁用",
+        "waiting_for_web_service": "等待 Web 服务启动",
+        "connecting": "连接中",
+        "connected": "已连接 · RTT {rtt} 毫秒 · 活跃流 {streams}",
+        "backoff": "{seconds} 秒后重试",
+        "error": "错误：{error}"
+      }
+    },
+    "pairing": {
+      "lan": "局域网",
+      "relay": "中继",
+      "lanToken": "局域网 + Token",
+      "show": "显示配对二维码（包含 Token）",
+      "hide": "隐藏配对二维码",
+      "warning": "此二维码包含访问 Token。请仅用可信设备扫描，不要分享二维码或截图。",
+      "noToken": "需要访问 Token 才能显示配对二维码。"
     }
   },
   "DirectoryBrowser": {

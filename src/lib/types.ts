@@ -4767,6 +4767,51 @@ export interface OfficecliInstallEvent {
   payload: string
 }
 
+// ─── Remote Relay ───
+
+export interface RelayConfig {
+  enabled: boolean
+  url: string
+  key_set: boolean
+  fingerprint: string | null
+  public_url: string | null
+  effective_public_url: string | null
+  source: "settings" | "env"
+}
+
+export interface RelayStatus {
+  state:
+    | "disabled"
+    | "waiting_for_web_service"
+    | "connecting"
+    | "connected"
+    | "backoff"
+    | "error"
+  url: string | null
+  connected_since: string | null
+  last_rtt_ms: number | null
+  active_streams: number
+  total_streams: number
+  last_error: string | null
+  next_retry_in_ms: number | null
+  relay_cert_fingerprint: string | null
+}
+
+export interface RelayTestResult {
+  ok: boolean
+  fingerprint: string | null
+  rtt_ms: number | null
+  error: string | null
+  error_code:
+    | "tls_untrusted"
+    | "fingerprint_mismatch"
+    | "auth_rejected"
+    | "unreachable"
+    | "timeout"
+    | "protocol"
+    | null
+}
+
 // ─── Chat Channels ───
 
 export type ChannelType = "lark" | "telegram" | "weixin"

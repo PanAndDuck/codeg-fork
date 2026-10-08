@@ -4088,6 +4088,51 @@
       "permissionDenied": "Permiso denegado. Utilice un puerto superior a 1024 o ejecute con mayores privilegios.",
       "addressUnavailable": "La dirección no está disponible en este equipo",
       "bindFailed": "No se pudo enlazar la dirección"
+    },
+    "relay": {
+      "title": "Relay remoto",
+      "description": "Acceda a este Codeg desde fuera de su red local mediante un relay público.",
+      "enable": "Activar relay",
+      "url": "URL del relay",
+      "key": "Clave del relay",
+      "keySet": "Configurada",
+      "replace": "Reemplazar",
+      "fingerprint": "Huella del certificado (opcional)",
+      "fingerprintHint": "Huella SHA-256 del certificado del relay. Verifíquela con el administrador antes de confiar en ella.",
+      "advanced": "Opciones avanzadas",
+      "publicUrl": "URL pública alternativa",
+      "publicUrlHint": "Deje vacío para usar la URL pública derivada de la dirección del relay.",
+      "save": "Guardar",
+      "saved": "Configuración del relay guardada",
+      "test": "Probar conexión",
+      "testing": "Probando…",
+      "testSuccess": "Conexión correcta · RTT {rtt} ms",
+      "untrusted": "Este certificado no es de confianza. Verifique la huella por un canal fiable antes de guardarla.",
+      "trust": "Confiar en este certificado",
+      "mismatch": "La huella del certificado no coincide: posible interceptación o cambio del certificado del relay. Consulte al administrador antes de cambiar la huella guardada.",
+      "env": "La configuración procede de variables de entorno y no se puede editar aquí.",
+      "unavailable": "El relay no está disponible en esta compilación",
+      "loading": "Cargando…",
+      "retry": "Reintentar",
+      "failed": "La solicitud al relay falló",
+      "invalidFingerprint": "Introduzca una huella SHA-256 válida (64 dígitos hexadecimales).",
+      "status": {
+        "disabled": "Desactivado",
+        "waiting_for_web_service": "Esperando al servicio web",
+        "connecting": "Conectando",
+        "connected": "Conectado · RTT {rtt} ms · flujos {streams}",
+        "backoff": "Reintento en {seconds} s",
+        "error": "Error: {error}"
+      }
+    },
+    "pairing": {
+      "lan": "LAN",
+      "relay": "Relay",
+      "lanToken": "LAN + token",
+      "show": "Mostrar QR de emparejamiento (contiene token)",
+      "hide": "Ocultar QR de emparejamiento",
+      "warning": "Este código QR contiene su token de acceso. Escanéelo solo en un dispositivo de confianza; no comparta el código ni una captura de pantalla.",
+      "noToken": "Se requiere un token de acceso para mostrar el QR de emparejamiento."
     }
   },
   "DirectoryBrowser": {

@@ -16,9 +16,14 @@ import { QRCodeSVG } from "qrcode.react"
 import { useTranslations } from "next-intl"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Switch } from "@/components/ui/switch"
+import { Button } from "@/components/ui/button"
+import { WebServiceRelaySection } from "./web-service-relay-section"
+import { buildPairingPayload } from "@/lib/relay/pairing"
+import type { RelayConfig } from "@/lib/types"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -79,11 +84,15 @@ function AddressBar({
   addresses,
   hasMultiple,
   onSelect,
+  token,
+  relayConfig,
 }: {
   address: string
   addresses: string[]
   hasMultiple: boolean
   onSelect: (address: string) => void
+  token: string
+  relayConfig: RelayConfig | null
 }) {
   const t = useTranslations("WebServiceSettings")
   const [copied, markCopied] = useCopiedFlag()
@@ -152,37 +161,137 @@ function AddressBar({
         open={qrOpen}
         address={address}
         onOpenChange={setQrOpen}
+        token={token}
+        relayConfig={relayConfig}
       />
     </>
   )
 }
 
-function AddressQrcodeDialog({
+export function AddressQrcodeDialog({
   open,
   address,
   onOpenChange,
+  token,
+  relayConfig,
+  name = "Codeg",
 }: {
   open: boolean
   address: string
   onOpenChange: (open: boolean) => void
+  token: string
+  relayConfig: RelayConfig | null
+  name?: string
 }) {
   const t = useTranslations("WebServiceSettings")
+  const [mode, setMode] = useState<"lan" | "relay" | "direct">("lan")
+  const [revealedFor, setRevealedFor] = useState<string | null>(null)
+  const relayUrl = relayConfig?.enabled
+    ? relayConfig.effective_public_url
+    : null
+  const activeMode = mode === "relay" && !relayUrl ? "lan" : mode
+  const url = activeMode === "relay" ? relayUrl! : address
+  // A changed address, token or certificate requires another explicit reveal.
+  const payload = buildPairingPayload({
+    mode: activeMode === "relay" ? "relay" : "direct",
+    url,
+    token,
+    fp:
+      activeMode === "relay"
+        ? (relayConfig?.fingerprint ?? undefined)
+        : undefined,
+    name,
+  })
+  const revealed = revealedFor === payload
+  const revealScope = JSON.stringify([
+    open,
+    address,
+    token,
+    relayUrl,
+    relayConfig?.fingerprint,
+    name,
+  ])
+  const [previousScope, setPreviousScope] = useState(revealScope)
+  // Reset before rendering changed props, including a return to an old token.
+  if (previousScope !== revealScope) {
+    setPreviousScope(revealScope)
+    setRevealedFor(null)
+    if (!open) setMode("lan")
+  }
+
+  function selectMode(next: typeof mode) {
+    setMode(next)
+    setRevealedFor(null)
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xs">
+      <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>{t("qrcodeTitle")}</DialogTitle>
+          <DialogDescription>{t("qrcodeHint")}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col items-center gap-4 py-2">
-          <div className="rounded-lg bg-white p-3">
-            <QRCodeSVG value={address} size={208} marginSize={0} />
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button
+              size="sm"
+              variant={activeMode === "lan" ? "secondary" : "outline"}
+              aria-pressed={activeMode === "lan"}
+              onClick={() => selectMode("lan")}
+            >
+              {t("pairing.lan")}
+            </Button>
+            {relayUrl && (
+              <Button
+                size="sm"
+                variant={activeMode === "relay" ? "secondary" : "outline"}
+                aria-pressed={activeMode === "relay"}
+                onClick={() => selectMode("relay")}
+              >
+                {t("pairing.relay")}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant={activeMode === "direct" ? "secondary" : "outline"}
+              aria-pressed={activeMode === "direct"}
+              onClick={() => selectMode("direct")}
+            >
+              {t("pairing.lanToken")}
+            </Button>
           </div>
+          {activeMode !== "lan" && (
+            <>
+              <p className="text-center text-xs text-amber-700 dark:text-amber-300">
+                {t("pairing.warning")}
+              </p>
+              {!token && (
+                <p className="text-center text-xs text-muted-foreground">
+                  {t("pairing.noToken")}
+                </p>
+              )}
+              <Button
+                variant="outline"
+                className="h-auto whitespace-normal py-2"
+                disabled={!token}
+                onClick={() => setRevealedFor(revealed ? null : payload)}
+              >
+                {revealed ? t("pairing.hide") : t("pairing.show")}
+              </Button>
+            </>
+          )}
+          {(activeMode === "lan" || (revealed && !!token)) && (
+            <div className="rounded-lg bg-white p-3">
+              <QRCodeSVG
+                value={activeMode === "lan" ? address : payload}
+                size={208}
+                marginSize={0}
+              />
+            </div>
+          )}
           <code className="text-center text-xs break-all text-muted-foreground select-all">
-            {address}
+            {url}
           </code>
-          <p className="text-center text-xs text-muted-foreground">
-            {t("qrcodeHint")}
-          </p>
         </div>
       </DialogContent>
     </Dialog>
@@ -289,6 +398,7 @@ export function WebServiceSettings() {
   const [autoStart, setAutoStart] = useState(false)
   const [configLoaded, setConfigLoaded] = useState(false)
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null)
+  const [relayConfig, setRelayConfig] = useState<RelayConfig | null>(null)
 
   const probePort = useCallback(async (portNum: number) => {
     try {
@@ -588,6 +698,8 @@ export function WebServiceSettings() {
                 addresses={status.addresses}
                 hasMultiple={hasMultipleAddresses}
                 onSelect={handleSelectAddress}
+                token={token}
+                relayConfig={relayConfig}
               />
               {hasMultipleAddresses && (
                 <p className="text-xs text-muted-foreground">
@@ -597,6 +709,7 @@ export function WebServiceSettings() {
             </div>
           )}
         </div>
+        <WebServiceRelaySection onConfigChange={setRelayConfig} />
       </div>
     </ScrollArea>
   )

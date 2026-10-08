@@ -4088,6 +4088,51 @@
       "permissionDenied": "Permission refusée. Utilisez un port supérieur à 1024 ou exécutez avec des privilèges plus élevés.",
       "addressUnavailable": "Cette adresse n'est pas disponible sur cette machine",
       "bindFailed": "Échec de la liaison à l'adresse"
+    },
+    "relay": {
+      "title": "Relais distant",
+      "description": "Accédez à ce Codeg hors de votre réseau local via un relais public.",
+      "enable": "Activer le relais",
+      "url": "URL du relais",
+      "key": "Clé du relais",
+      "keySet": "Définie",
+      "replace": "Remplacer",
+      "fingerprint": "Empreinte du certificat (facultatif)",
+      "fingerprintHint": "Empreinte SHA-256 du certificat du relais. Vérifiez-la auprès de son administrateur avant de lui faire confiance.",
+      "advanced": "Paramètres avancés",
+      "publicUrl": "URL publique personnalisée",
+      "publicUrlHint": "Laissez vide pour utiliser l’URL publique déduite de l’adresse du relais.",
+      "save": "Enregistrer",
+      "saved": "Paramètres du relais enregistrés",
+      "test": "Tester la connexion",
+      "testing": "Test en cours…",
+      "testSuccess": "Connexion réussie · RTT {rtt} ms",
+      "untrusted": "Ce certificat n’est pas reconnu comme fiable. Vérifiez son empreinte par un canal de confiance avant de l’enregistrer.",
+      "trust": "Faire confiance à ce certificat",
+      "mismatch": "L’empreinte du certificat ne correspond pas : interception possible ou certificat du relais remplacé. Consultez l’administrateur avant de modifier l’empreinte enregistrée.",
+      "env": "La configuration provient de variables d’environnement et ne peut pas être modifiée ici.",
+      "unavailable": "Le relais n’est pas disponible dans cette version",
+      "loading": "Chargement…",
+      "retry": "Réessayer",
+      "failed": "Échec de la requête au relais",
+      "invalidFingerprint": "Saisissez une empreinte SHA-256 valide (64 chiffres hexadécimaux).",
+      "status": {
+        "disabled": "Désactivé",
+        "waiting_for_web_service": "En attente du service Web",
+        "connecting": "Connexion en cours",
+        "connected": "Connecté · RTT {rtt} ms · flux {streams}",
+        "backoff": "Nouvelle tentative dans {seconds} s",
+        "error": "Erreur : {error}"
+      }
+    },
+    "pairing": {
+      "lan": "Réseau local",
+      "relay": "Relais",
+      "lanToken": "Réseau local + token",
+      "show": "Afficher le QR d’association (contient le token)",
+      "hide": "Masquer le QR d’association",
+      "warning": "Ce code QR contient votre token d’accès. Scannez-le uniquement sur un appareil de confiance ; ne partagez ni le code ni une capture d’écran.",
+      "noToken": "Un token d’accès est nécessaire pour afficher le QR d’association."
     }
   },
   "DirectoryBrowser": {

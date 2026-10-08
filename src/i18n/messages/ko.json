@@ -4088,6 +4088,51 @@
       "permissionDenied": "권한이 부족합니다. 1024 이상의 포트를 사용하거나 더 높은 권한으로 실행하세요",
       "addressUnavailable": "이 주소는 현재 시스템에서 사용할 수 없습니다",
       "bindFailed": "주소 바인딩에 실패했습니다"
+    },
+    "relay": {
+      "title": "원격 릴레이",
+      "description": "외부 네트워크에서 공개 릴레이를 통해 이 Codeg에 접속합니다.",
+      "enable": "릴레이 활성화",
+      "url": "릴레이 URL",
+      "key": "릴레이 키",
+      "keySet": "설정됨",
+      "replace": "교체",
+      "fingerprint": "인증서 지문(선택 사항)",
+      "fingerprintHint": "릴레이 인증서의 SHA-256 지문입니다. 신뢰하기 전에 릴레이 관리자에게 확인하세요.",
+      "advanced": "고급 설정",
+      "publicUrl": "공개 URL 재정의",
+      "publicUrlHint": "비워 두면 릴레이 주소에서 생성한 공개 URL을 사용합니다.",
+      "save": "저장",
+      "saved": "릴레이 설정을 저장했습니다",
+      "test": "연결 테스트",
+      "testing": "테스트 중…",
+      "testSuccess": "연결 성공 · RTT {rtt} ms",
+      "untrusted": "신뢰할 수 없는 인증서입니다. 저장하기 전에 신뢰할 수 있는 경로로 지문을 확인하세요.",
+      "trust": "이 인증서 신뢰",
+      "mismatch": "인증서 지문이 일치하지 않습니다. 통신 가로채기 또는 릴레이 인증서 교체 가능성이 있습니다. 저장된 지문을 변경하기 전에 관리자에게 확인하세요.",
+      "env": "환경 변수로 제공된 설정이므로 여기서 편집할 수 없습니다.",
+      "unavailable": "이 빌드에서는 릴레이를 지원하지 않습니다",
+      "loading": "불러오는 중…",
+      "retry": "다시 시도",
+      "failed": "릴레이 요청 실패",
+      "invalidFingerprint": "유효한 SHA-256 지문(16진수 64자리)을 입력하세요.",
+      "status": {
+        "disabled": "비활성화됨",
+        "waiting_for_web_service": "웹 서비스 시작 대기 중",
+        "connecting": "연결 중",
+        "connected": "연결됨 · RTT {rtt} ms · 스트림 {streams}",
+        "backoff": "{seconds}초 후 다시 시도",
+        "error": "오류: {error}"
+      }
+    },
+    "pairing": {
+      "lan": "LAN",
+      "relay": "릴레이",
+      "lanToken": "LAN + 토큰",
+      "show": "페어링 QR 코드 표시(토큰 포함)",
+      "hide": "페어링 QR 코드 숨기기",
+      "warning": "이 QR 코드에는 접속 토큰이 포함되어 있습니다. 신뢰할 수 있는 기기에서만 스캔하고 코드나 스크린샷을 공유하지 마세요.",
+      "noToken": "페어링 QR 코드를 표시하려면 접속 토큰이 필요합니다."
     }
   },
   "DirectoryBrowser": {

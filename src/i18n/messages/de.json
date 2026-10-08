@@ -4088,6 +4088,51 @@
       "permissionDenied": "Zugriff verweigert. Verwenden Sie einen Port über 1024 oder starten Sie mit höheren Rechten.",
       "addressUnavailable": "Die Adresse ist auf diesem Computer nicht verfügbar",
       "bindFailed": "Adresse konnte nicht gebunden werden"
+    },
+    "relay": {
+      "title": "Remote-Relay",
+      "description": "Greifen Sie außerhalb Ihres lokalen Netzwerks über ein öffentliches Relay auf dieses Codeg zu.",
+      "enable": "Relay aktivieren",
+      "url": "Relay-URL",
+      "key": "Relay-Schlüssel",
+      "keySet": "Gesetzt",
+      "replace": "Ersetzen",
+      "fingerprint": "Zertifikatsfingerabdruck (optional)",
+      "fingerprintHint": "SHA-256-Fingerabdruck des Relay-Zertifikats. Prüfen Sie ihn beim Relay-Administrator, bevor Sie ihm vertrauen.",
+      "advanced": "Erweitert",
+      "publicUrl": "Öffentliche URL überschreiben",
+      "publicUrlHint": "Leer lassen, um die aus der Relay-Adresse abgeleitete öffentliche URL zu verwenden.",
+      "save": "Speichern",
+      "saved": "Relay-Einstellungen gespeichert",
+      "test": "Verbindung testen",
+      "testing": "Wird getestet…",
+      "testSuccess": "Verbindung erfolgreich · RTT {rtt} ms",
+      "untrusted": "Diesem Zertifikat wird nicht vertraut. Prüfen Sie den Fingerabdruck vor dem Speichern über einen vertrauenswürdigen Kanal.",
+      "trust": "Diesem Zertifikat vertrauen",
+      "mismatch": "Zertifikatsfingerabdruck stimmt nicht überein: möglicher Abhörversuch oder ausgetauschtes Relay-Zertifikat. Fragen Sie den Administrator, bevor Sie den gespeicherten Fingerabdruck ändern.",
+      "env": "Die Konfiguration stammt aus Umgebungsvariablen und kann hier nicht bearbeitet werden.",
+      "unavailable": "Relay-Unterstützung in diesem Build nicht verfügbar",
+      "loading": "Wird geladen…",
+      "retry": "Erneut versuchen",
+      "failed": "Relay-Anfrage fehlgeschlagen",
+      "invalidFingerprint": "Geben Sie einen gültigen SHA-256-Fingerabdruck ein (64 Hexadezimalziffern).",
+      "status": {
+        "disabled": "Deaktiviert",
+        "waiting_for_web_service": "Warten auf Webdienst",
+        "connecting": "Verbindung wird hergestellt",
+        "connected": "Verbunden · RTT {rtt} ms · Streams {streams}",
+        "backoff": "Neuer Versuch in {seconds} s",
+        "error": "Fehler: {error}"
+      }
+    },
+    "pairing": {
+      "lan": "LAN",
+      "relay": "Relay",
+      "lanToken": "LAN + Token",
+      "show": "Kopplungs-QR anzeigen (enthält Token)",
+      "hide": "Kopplungs-QR ausblenden",
+      "warning": "Dieser QR-Code enthält Ihr Zugriffstoken. Scannen Sie ihn nur mit einem vertrauenswürdigen Gerät und teilen Sie weder den Code noch einen Screenshot.",
+      "noToken": "Zum Anzeigen des Kopplungs-QR-Codes ist ein Zugriffstoken erforderlich."
     }
   },
   "DirectoryBrowser": {
