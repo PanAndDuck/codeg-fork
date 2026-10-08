@@ -204,6 +204,8 @@ kill_tree = { version = "0.2", features = ["tokio"] }
 which = "7"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"], optional = true }
 axum = { version = "0.8", features = ["ws", "multipart"] }
+constant_time_eq = "0.3"
+socket2 = { version = "0.6", features = ["all"] }
 async_zip = { version = "0.0.18", features = ["tokio", "deflate"] }
 tower-http = { version = "0.6", features = ["fs", "cors", "compression-gzip", "compression-br"] }
 # Direct deps (already in the graph via axum) so the compression predicate can
@@ -303,6 +305,7 @@ javascriptcore-rs = { version = "=1.1.2", optional = true }
 libc = "0.2"
 
 [dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
 tempfile = "3"
 temp-env = { version = "0.3", features = ["async_closure"] }
 tokio = { version = "1", features = ["test-util", "macros", "rt", "sync", "time"] }

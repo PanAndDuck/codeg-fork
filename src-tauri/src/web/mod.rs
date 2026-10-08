@@ -608,7 +608,12 @@ pub(crate) async fn do_start_web_server_with_state(
 
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     let handle = tokio::spawn(async move {
-        let serve = axum::serve(listener, router).with_graceful_shutdown(async move {
+        use axum::serve::ListenerExt;
+        let serve = axum::serve(
+            listener.tap_io(auth::configure_tcp_stream),
+            router.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .with_graceful_shutdown(async move {
             let _ = shutdown_rx.await;
         });
         if let Err(e) = serve.await {
@@ -949,7 +954,12 @@ pub(crate) async fn do_start_web_server_tauri(
 
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     let handle = tokio::spawn(async move {
-        let serve = axum::serve(listener, router).with_graceful_shutdown(async move {
+        use axum::serve::ListenerExt;
+        let serve = axum::serve(
+            listener.tap_io(auth::configure_tcp_stream),
+            router.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .with_graceful_shutdown(async move {
             let _ = shutdown_rx.await;
         });
         if let Err(e) = serve.await {

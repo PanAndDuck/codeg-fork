@@ -703,7 +703,13 @@ async fn async_main() -> ExitCode {
     }
 
     // Start serving
-    if let Err(e) = axum::serve(listener, router).await {
+    use axum::serve::ListenerExt;
+    if let Err(e) = axum::serve(
+        listener.tap_io(codeg_lib::web::auth::configure_tcp_stream),
+        router.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await
+    {
         tracing::error!("[SERVER] Server error: {}", e);
         return ExitCode::from(1);
     }

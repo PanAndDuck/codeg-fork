@@ -24,12 +24,29 @@ pub fn build_router(
     static_dir: std::path::PathBuf,
     shutdown_signal: Arc<ShutdownSignal>,
 ) -> Router {
+    build_router_with_auth_limiter(
+        state,
+        token,
+        static_dir,
+        shutdown_signal,
+        Arc::new(super::auth_limiter::AuthFailureLimiter::default()),
+    )
+}
+
+pub(crate) fn build_router_with_auth_limiter(
+    state: Arc<AppState>,
+    token: String,
+    static_dir: std::path::PathBuf,
+    shutdown_signal: Arc<ShutdownSignal>,
+    auth_limiter: Arc<super::auth_limiter::AuthFailureLimiter>,
+) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
         .allow_headers(Any);
 
     let token_for_ws = token.clone();
+    let limiter_for_ws = auth_limiter.clone();
 
     let api = Router::new()
         .route("/health", post(health_check))
@@ -1906,7 +1923,7 @@ pub fn build_router(
         // Catch-all
         .fallback(api_not_found)
         .layer(middleware::from_fn(move |req, next| {
-            auth::require_token(req, next, token.clone())
+            auth::require_token_with_limiter(req, next, token.clone(), auth_limiter.clone())
         }));
 
     // Public endpoints — no token required.
@@ -1971,7 +1988,12 @@ pub fn build_router(
             get(crate::web::browser_tunnel::ws_handler),
         )
         .layer(middleware::from_fn(move |req, next| {
-            auth::require_token(req, next, token_for_ws.clone())
+            auth::require_token_with_limiter(
+                req,
+                next,
+                token_for_ws.clone(),
+                limiter_for_ws.clone(),
+            )
         }));
 
     // Static file serving.
