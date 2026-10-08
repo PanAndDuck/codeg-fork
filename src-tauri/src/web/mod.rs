@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod auth_limiter;
 pub mod browser_bridge;
 pub mod browser_tunnel;
 pub mod compression;
