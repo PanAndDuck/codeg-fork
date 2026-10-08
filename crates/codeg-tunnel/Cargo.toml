@@ -11,4 +11,4 @@ futures-util = { version = "0.3", features = ["sink"] }
 tracing = "0.1"
 
 [dev-dependencies]
-tokio = { version = "1.49", features = ["test-util"] }
+tokio = { version = "1.49", features = ["test-util", "rt-multi-thread"] }
