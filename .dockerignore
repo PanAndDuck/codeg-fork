@@ -3,6 +3,7 @@ node_modules/
 out/
 target/
 src-tauri/target/
+crates/*/target/
 .git/
 *.md
 LICENSE
