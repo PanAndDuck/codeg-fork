@@ -18,6 +18,9 @@ import { TurnBusyError, isTurnInProgressRejection } from "./turn-busy"
 import type { FolderThemeColor } from "./theme-presets"
 import type { FollowUpIntent } from "./task-follow-up"
 import type {
+  RelayConfig,
+  RelayStatus,
+  RelayTestResult,
   LeakedTempReclaim,
   LeakedTempScan,
   AgentType,
@@ -4975,6 +4978,34 @@ export async function probeWebServicePort(
   return getTransport().call("probe_web_service_port", {
     port: port ?? null,
   })
+}
+
+// ─── Remote Relay ───
+
+export async function getRelayConfig(): Promise<RelayConfig> {
+  return getTransport().call("get_relay_config")
+}
+
+export async function updateRelayConfig(params: {
+  enabled?: boolean
+  url?: string
+  key?: string
+  fingerprint?: string | null
+  publicUrl?: string | null
+}): Promise<RelayConfig> {
+  return getTransport().call("update_relay_config", params)
+}
+
+export async function getRelayStatus(): Promise<RelayStatus> {
+  return getTransport().call("get_relay_status")
+}
+
+export async function testRelayConnection(params: {
+  url: string
+  key?: string
+  fingerprint?: string | null
+}): Promise<RelayTestResult> {
+  return getTransport().call("test_relay_connection", params)
 }
 
 // ─── Chat Channels ───
