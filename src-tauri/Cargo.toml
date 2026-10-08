@@ -113,6 +113,7 @@ required-features = ["server-bin"]
 tauri-build = { version = "2", features = [], optional = true }
 
 [dependencies]
+codeg-tunnel = { path = "../crates/codeg-tunnel" }
 # `devtools` is what makes the web inspector exist in a RELEASE build — in a
 # debug one `debug_assertions` already does. It reaches wry through
 # tauri-runtime-wry, which is where a browser tab's child webview is built, and
@@ -308,4 +309,3 @@ temp-env = { version = "0.3", features = ["async_closure"] }
 tokio = { version = "1", features = ["test-util", "macros", "rt", "sync", "time"] }
 insta = { version = "1", features = ["json", "redactions"] }
 axum-test = { version = "17", features = ["ws"] }
-

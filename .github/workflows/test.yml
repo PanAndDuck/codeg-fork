@@ -62,6 +62,20 @@ jobs:
       - name: Static export build
         run: pnpm build
 
+  tunnel:
+    name: Shared tunnel (test + clippy)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./crates/codeg-tunnel -> target"
+      - run: cargo test --locked --manifest-path crates/codeg-tunnel/Cargo.toml
+      - run: cargo clippy --locked --manifest-path crates/codeg-tunnel/Cargo.toml --all-targets -- -D warnings
+
   rust:
     name: Rust ${{ matrix.mode }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
