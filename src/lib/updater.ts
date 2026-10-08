@@ -1,3 +1,4 @@
+import { UPDATER_ENABLED } from "./flavor"
 import { extractAppCommandError, toErrorMessage } from "./app-error"
 import { getTransport, isDesktop, isRemoteDesktopMode } from "./transport"
 import type { AppCommandError } from "./types"
@@ -322,6 +323,9 @@ const MANIFEST_TIMEOUT_MS = 15_000
  * Server/remote hits `check_app_update`, which already answers in this shape.
  */
 export async function checkAppUpdateInfo(): Promise<AppUpdateCheckResult> {
+  if (!UPDATER_ENABLED) {
+    return { currentVersion: await getCurrentAppVersion(), update: null }
+  }
   if (!usesTauriUpdater()) {
     return getTransport().call<AppUpdateCheckResult>("check_app_update")
   }

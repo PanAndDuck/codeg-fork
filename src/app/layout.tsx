@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@/lib/flavor"
 import type { Metadata, Viewport } from "next"
 import "katex/dist/katex.min.css"
 import "./globals.css"
@@ -22,7 +23,7 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: "codeg",
+  title: PRODUCT_NAME,
   description: "AI Coding Agent Conversation Manager",
   icons: {
     icon: [

@@ -1,5 +1,6 @@
 "use client"
 
+import { PRODUCT_NAME } from "@/lib/flavor"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import { Loader2 } from "lucide-react"
@@ -271,7 +272,9 @@ export function PetWindow({ petId }: PetWindowProps) {
   // Keep the document title clean. macOS hides it via title_bar_style anyway,
   // but server-mode preview shows it.
   useEffect(() => {
-    document.title = pet ? `${pet.displayName} - codeg pet` : "codeg pet"
+    document.title = pet
+      ? `${pet.displayName} - ${PRODUCT_NAME} pet`
+      : `${PRODUCT_NAME} pet`
   }, [pet])
 
   // Fully transparent body so the OS chrome is invisible. Done in JS to keep

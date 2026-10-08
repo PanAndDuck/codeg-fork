@@ -1,5 +1,6 @@
 "use client"
 
+import { DEFAULT_WEB_PORT } from "@/lib/flavor"
 import {
   useCallback,
   useEffect,
@@ -560,7 +561,7 @@ export function RemoteWorkspaceManageDialog({
                       <Input
                         id="remote-workspace-base-url"
                         value={draft.baseUrl}
-                        placeholder="http://127.0.0.1:3080"
+                        placeholder={`http://127.0.0.1:${DEFAULT_WEB_PORT}`}
                         onChange={(event) =>
                           updateDraft({ baseUrl: event.target.value })
                         }

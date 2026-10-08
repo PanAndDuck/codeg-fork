@@ -1,5 +1,6 @@
 "use client"
 
+import { PRODUCT_NAME } from "@/lib/flavor"
 import { Suspense, useEffect } from "react"
 import { useTranslations } from "next-intl"
 import { AppTitleBar } from "@/components/layout/app-title-bar"
@@ -10,7 +11,7 @@ function ProjectBootPageInner() {
   const t = useTranslations("ProjectBoot")
 
   useEffect(() => {
-    document.title = `${t("title")} - codeg`
+    document.title = `${t("title")} - ${PRODUCT_NAME}`
   }, [t])
 
   return (

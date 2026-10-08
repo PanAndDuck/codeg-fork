@@ -1,5 +1,6 @@
 "use client"
 
+import { DEFAULT_WEB_PORT } from "@/lib/flavor"
 import { useCallback, useEffect, useState } from "react"
 import {
   AlertTriangle,
@@ -39,7 +40,7 @@ import {
   type WebServicePortProbe,
 } from "@/lib/api"
 
-const DEFAULT_PORT = 3080
+const DEFAULT_PORT = DEFAULT_WEB_PORT
 import { openUrl } from "@/lib/platform"
 import { copyTextToClipboard } from "@/lib/utils"
 import { useCopiedFlag } from "@/hooks/use-copied-flag"
