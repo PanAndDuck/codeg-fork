@@ -2,7 +2,8 @@
 """Local asyncio fault proxy. TLS pass-through or separately pinned termination."""
 import argparse
 import asyncio
-from collections import Counter
+from collections import Counter, deque
+import hashlib
 import json
 from pathlib import Path
 import signal
@@ -93,6 +94,10 @@ class Proxy:
         self.block_until = 0
         self.block_all_until = 0
         self.faults = {}
+        self.evidence = deque(maxlen=2000)
+
+    def observe(self, kind, **fields):
+        self.evidence.append(dict(kind=kind, unix=time.time(), **fields))
 
     def take(self, name):
         value = self.faults.get(name)
@@ -109,7 +114,7 @@ class Proxy:
                 "websockets": sum(c.ws for c in self.connections), "throttle_bps": self.throttle_bps,
                 "block_ws_remaining": max(0, round(self.block_until - time.monotonic(), 2)),
                 "block_all_remaining": max(0, round(self.block_all_until - time.monotonic(), 2)),
-                "faults": self.faults, "counters": dict(self.counters),
+                "faults": self.faults, "counters": dict(self.counters), "evidence": list(self.evidence),
                 "passthrough_scope": "all TCP connections; TLS hides HTTP/WS classification" if self.mode == "passthrough" else None}
 
     async def control(self, msg):
@@ -182,6 +187,7 @@ class Proxy:
                 chunk = data[offset:offset + count]
                 writer.write(chunk)
                 await writer.drain()
+                self.counters["bytes_down" if downstream else "bytes_up"] += len(chunk)
                 offset += len(chunk)
                 if bps:
                     await asyncio.sleep(len(chunk) / bps)
@@ -232,6 +238,7 @@ class Proxy:
             c.connection_id = msg.get("connection_id")
             c.detached = False
             self.counters["attaches"] += 1
+            self.observe("attach", since_seq=msg.get("since_seq"))
             if self.take("drop_attach"):
                 self.counters["dropped_attaches"] += 1
                 c.abort()
@@ -248,11 +255,17 @@ class Proxy:
             if delay:
                 await asyncio.sleep(delay["seconds"])
         if downstream:
+            if msg.get("type") in ("snapshot", "replay", "detached"):
+                self.observe("ws", type=msg.get("type"), bytes=len(payload),
+                             replay_events=len(msg.get("events", [])))
             if c.quiet_stopped:
                 self.counters["quiet_dropped_messages"] += 1
                 return None
             channel = msg.get("channel")
             envelope = msg.get("envelope")
+            if msg.get("type") == "event" and isinstance(envelope, dict):
+                self.observe("event", type=envelope.get("type"), seq=envelope.get("seq"),
+                             text_bytes=len(envelope.get("text", "").encode()))
             if c.detached and (msg.get("subscription_id") == c.subscription or
                                isinstance(channel, str) and channel.startswith("acp:")):
                 return None
@@ -297,6 +310,7 @@ class Proxy:
         first, fields = await read_head(reader)
         method, target, _ = first.decode("ascii").split(" ", 2)
         path = target.split("?", 1)[0]
+        started = time.monotonic()
         is_ws = get_header(fields, b"upgrade").lower() == b"websocket"
         if is_ws and time.monotonic() < self.block_until:
             self.counters["blocked_ws"] += 1
@@ -312,6 +326,17 @@ class Proxy:
         if delay and delay["path"] == path:
             await asyncio.sleep(self.take("delay_http")["seconds"])
         body = await asyncio.wait_for(request_body(reader, fields), 30)
+        observed = dict(path=path, request_bytes=len(body))
+        header = get_header(fields, b"x-e1b-proof")
+        if header:
+            observed["custom_header_sha256"] = hashlib.sha256(header).hexdigest()
+        if path in ("/api/get_folder_conversation", "/api/get_folder_conversation_turns"):
+            try:
+                params = json.loads(body)
+                observed["selectors"] = {k: params[k] for k in ("conversationId", "tailTurns", "fromIndex", "beforeIndex", "limit") if k in params}
+            except (ValueError, TypeError):
+                pass
+        self.observe("request", **observed)
         upstream_reader, c.upstream = await self.dial()
         # HTTP/1.1 only, one non-WS request per downstream connection. Removing
         # compression negotiation keeps WS JSON visible and response drop exact.
@@ -333,9 +358,13 @@ class Proxy:
             await self.send(c, c.client, head_bytes(response, response_fields), True)
         # Upstream was explicitly asked to close; stream unbounded response
         # bodies without retaining the >1 MiB snapshot in the proxy's memory.
+        response_bytes = 0
         while data := await upstream_reader.read(65536):
+            response_bytes += len(data)
             if not drop:
                 await self.send(c, c.client, data, True)
+        self.observe("response", path=path, status=int(response.split(b" ")[1]),
+                     bytes=response_bytes, duration_ms=round((time.monotonic()-started)*1000, 2))
         if drop:
             self.counters["dropped_http_responses"] += 1
             self.counters["last_dropped_http_status"] = int(response.split(b" ")[1])
