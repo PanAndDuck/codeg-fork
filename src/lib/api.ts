@@ -4993,7 +4993,7 @@ export async function updateRelayConfig(params: {
   fingerprint?: string | null
   publicUrl?: string | null
 }): Promise<RelayConfig> {
-  return getTransport().call("update_relay_config", params)
+  return getTransport().call("update_relay_config", { config: params })
 }
 
 export async function getRelayStatus(): Promise<RelayStatus> {
@@ -5005,7 +5005,7 @@ export async function testRelayConnection(params: {
   key?: string
   fingerprint?: string | null
 }): Promise<RelayTestResult> {
-  return getTransport().call("test_relay_connection", params)
+  return getTransport().call("test_relay_connection", { config: params })
 }
 
 // ─── Chat Channels ───
