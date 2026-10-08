@@ -467,12 +467,13 @@ where
         requests: incoming,
         stop: shared.stop.clone(),
     };
-    let task = tokio::spawn(session::run(
-        transport,
-        cfg,
-        handle.clone(),
-        receiver,
-        requests,
-    ));
+    // Construct outside the spawned future: even an abort before its first
+    // poll must publish the disconnected state and release incoming waiters.
+    let guard = shared.stop.clone().drop_guard();
+    let session_handle = handle.clone();
+    let task = tokio::spawn(async move {
+        let _guard = guard;
+        session::run(transport, cfg, session_handle, receiver, requests).await
+    });
     (handle, incoming, task)
 }

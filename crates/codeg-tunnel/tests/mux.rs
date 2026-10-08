@@ -68,6 +68,16 @@ fn transport_pair_with_capacity(capacity: usize) -> (Transport, Transport) {
 }
 
 type Running = (MuxHandle, MuxIncoming, tokio::task::JoinHandle<MuxEnd>);
+
+#[tokio::test]
+async fn abort_before_first_poll_marks_session_closed() {
+    let (transport, _peer) = transport_pair();
+    let (handle, _, task) = start(transport, MuxConfig::default());
+    task.abort();
+    assert!(task.await.unwrap_err().is_cancelled());
+    assert!(!handle.stats().connected);
+}
+
 fn pair() -> (Running, Running) {
     let (a, b) = transport_pair();
     (
