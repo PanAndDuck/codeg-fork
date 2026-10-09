@@ -44,6 +44,14 @@ def size(path):
     return sum(p.stat().st_size for p in Path(path).rglob('*') if p.is_file() and not p.is_symlink())
 
 
+def sha256(path):
+    digest = hashlib.sha256()
+    with Path(path).open('rb') as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def plan(action, source, restore, no_relaunch, inline):
     home = str(Path.home())
     defaults = dict(apps_dir='/Applications', data_dir=home + '/Library/Application Support/app.codeg',
@@ -171,7 +179,7 @@ def complete_manifest(path):
     cfg = json.loads(Path(path).read_text())
     db = Path(cfg['data_snapshot']) / 'data/codeg.db'
     integrity(db)
-    cfg['db_sha256'] = hashlib.sha256(db.read_bytes()).hexdigest()
+    cfg['db_sha256'] = sha256(db)
     cfg['sizes'] = {k: size(cfg[k]) for k in ('app_backup', 'data_snapshot')}
     cfg['require_port'] = requires_port(db)
     cfg['restore_require_port'] = requires_port(Path(cfg['restore_snapshot']) / 'data/codeg.db') if cfg['restore_snapshot'] else False
@@ -189,7 +197,9 @@ def exports(cfg):
 
 def launch_plist(cfg):
     # Explicit env: never inherit the host application's runtime overrides or secrets.
-    env = {k: os.environ[k] for k in ('HOME', 'USER', 'LOGNAME', 'TMPDIR') if k in os.environ}
+    env = {k: os.environ[k] for k in ('HOME', 'USER', 'LOGNAME') if k in os.environ}
+    # The host sets TMPDIR inside its ACP session; that tree may disappear on quit.
+    env['TMPDIR'] = command('getconf', 'DARWIN_USER_TEMP_DIR')
     env['PATH'] = '/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin'
     data = dict(Label=cfg['label'], RunAtLoad=True, KeepAlive=False,
                 AbandonProcessGroup=True, ProcessType='Interactive',

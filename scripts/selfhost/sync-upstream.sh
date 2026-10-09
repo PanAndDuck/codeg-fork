@@ -43,7 +43,8 @@ trap 'exit 143' TERM
 run git fetch upstream --tags
 git rev-parse --verify "refs/tags/$TAG^{commit}" >/dev/null
 run git switch -c "sync/$TAG" fork/main
-if ! run git -c core.editor=true merge --no-edit "refs/tags/$TAG"; then
+printf 'Merge upstream %s\n\nCo-Authored-By: Codex CLI <noreply@openai.com>\n' "$TAG" > "$TEMP_STATE/merge-message"
+if ! run git -c core.editor=true merge --no-edit --file "$TEMP_STATE/merge-message" "refs/tags/$TAG"; then
   echo 'Merge stopped. Resolve these conflicts and commit manually; no build was started:'
   git diff --name-only --diff-filter=U
   exit 1

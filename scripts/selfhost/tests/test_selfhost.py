@@ -77,7 +77,8 @@ class SelfhostTests(unittest.TestCase):
         # Only signals exact executables inside this test's unique temporary root.
         for raw in run('ps', '-axo', 'pid=').split():
             pid = int(raw)
-            if executable(pid) == str(self.app / 'Contents/MacOS/codeg'):
+            path = executable(pid)
+            if path.startswith(str(self.root) + '/') and path.endswith('/Contents/MacOS/codeg'):
                 os.kill(pid, signal.SIGTERM)
         if self.backup.exists():
             for plist in self.backup.glob('jobs/*/job.plist'):
@@ -134,8 +135,20 @@ class SelfhostTests(unittest.TestCase):
         self.assertEqual(status.read_text().strip(), 'OK', Path(manifest['log']).read_text())
         self.assertEqual(self.commit(), 'upgraded')
         self.assertIn('ppid=1', Path(manifest['log']).read_text())
-        self.script('rollback.sh', '--to', manifest['app_backup'], '--inline')
+        self.script('rollback.sh', '--to', manifest['app_backup'])
+        rollback = json.loads(self.transactions()[-1].read_text())
+        status = Path(rollback['job_dir']) / 'status'
+        deadline = time.monotonic() + 110
+        while not status.exists() and time.monotonic() < deadline:
+            time.sleep(.5)
+        self.assertTrue(status.exists(), Path(rollback['log']).read_text())
+        self.assertEqual(status.read_text().strip(), 'OK', Path(rollback['log']).read_text())
         self.assertEqual(self.commit(), 'original')
+        time.sleep(.5)
+        for item in (manifest, rollback):
+            result = subprocess.run(['launchctl', 'print', f'gui/{os.getuid()}/{item["label"]}'],
+                                    capture_output=True)
+            self.assertNotEqual(result.returncode, 0, 'One-shot job must unload itself')
 
     def test_failed_relaunch_automatically_restores_original(self):
         resources = self.stage / 'Contents/Resources'
@@ -159,6 +172,61 @@ class SelfhostTests(unittest.TestCase):
         (self.stage / 'Contents/MacOS/codeg').write_bytes(b'invalid')
         self.script('swap.sh', '--staged', self.stage, '--inline', success=False)
         self.assertFalse(self.backup.exists())
+
+    def test_no_relaunch_and_stale_new_path(self):
+        stale = Path(str(self.app) + '.new')
+        stale.symlink_to(self.root / 'does-not-exist')
+        self.script('swap.sh', '--staged', self.stage, '--inline', success=False)
+        self.assertFalse(self.backup.exists())
+        stale.unlink()
+        self.script('swap.sh', '--staged', self.stage, '--inline', '--no-relaunch')
+        self.assertEqual(self.commit(), 'upgraded')
+        for raw in run('ps', '-axo', 'pid=').split():
+            self.assertNotEqual(executable(int(raw)), str(self.app / 'Contents/MacOS/codeg'))
+
+    def test_duplicate_bundle_id_refuses_to_quit_either_app(self):
+        with (self.stage / 'Contents/Info.plist').open('rb') as f:
+            info = plistlib.load(f)
+        info['TestPort'] = '18498'
+        with (self.stage / 'Contents/Info.plist').open('wb') as f:
+            plistlib.dump(info, f)
+        run('codesign', '--force', '--sign', '-', str(self.stage))
+        run('open', '-n', '-a', str(self.app), env=self.env)
+        run('open', '-n', '-a', str(self.stage), env=self.env)
+        time.sleep(1)
+        output = self.script('swap.sh', '--staged', self.stage, '--inline', success=False)
+        self.assertIn('Ambiguous bundle id', output)
+        paths = {executable(int(raw)) for raw in run('ps', '-axo', 'pid=').split()}
+        self.assertIn(str(self.app / 'Contents/MacOS/codeg'), paths)
+        self.assertIn(str(self.stage / 'Contents/MacOS/codeg'), paths)
+        self.assertEqual(self.commit(), 'original')
+
+    def test_escalation_signals_never_match_companion_executable(self):
+        companion = self.app / 'Contents/MacOS/codeg-mcp'
+        run('clang', '-x', 'c', '-', '-o', str(companion),
+            input='#include <unistd.h>\nint main(void) { sleep(60); return 0; }\n')
+        run('codesign', '--force', '--sign', '-', str(self.app))
+        child = subprocess.Popen([str(companion), '60'])
+        try:
+            for sig in ('TERM', 'KILL'):
+                run('open', '-n', '-a', str(self.app), env=self.env)
+                deadline = time.monotonic() + 10
+                pid = ''
+                while not pid and time.monotonic() < deadline:
+                    pid = run('python3', str(SCRIPTS / 'support.py'), 'pids', str(self.app)).strip()
+                    time.sleep(.1)
+                self.assertTrue(pid)
+                run('python3', str(SCRIPTS / 'support.py'), 'signal', str(self.app), sig)
+                deadline = time.monotonic() + 5
+                while executable(int(pid)) and time.monotonic() < deadline:
+                    time.sleep(.1)
+                self.assertFalse(executable(int(pid)))
+                self.assertIsNone(child.poll(), 'Signal must not hit codeg-mcp')
+        finally:
+            if child.poll() is None:
+                self.assertEqual(executable(child.pid), str(companion))
+                child.terminate()
+            child.wait(timeout=5)
 
 
 if __name__ == '__main__':
