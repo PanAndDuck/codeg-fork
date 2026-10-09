@@ -540,6 +540,13 @@ where
         let Some(payload) = build(&mut s) else {
             return false;
         };
+        if s.is_late_turn_delta(&payload) {
+            tracing::debug!(
+                connection_id = %s.connection_id,
+                "[ACP] dropping content/thinking delta after turn completion"
+            );
+            return false;
+        }
         s.apply_event(&payload);
         s.event_seq += 1;
         let envelope = Arc::new(EventEnvelope {
@@ -627,6 +634,40 @@ mod tests {
             "win-test".to_string(),
             None,
         )))
+    }
+
+    #[tokio::test]
+    async fn late_turn_deltas_are_not_broadcast_or_replayed() {
+        let state = fresh_state();
+        emit_with_state(
+            &state,
+            &EventEmitter::Noop,
+            AcpEvent::TurnComplete {
+                session_id: "s1".into(),
+                stop_reason: "end_turn".into(),
+                agent_type: "claude_code".into(),
+            },
+        )
+        .await;
+        let seq = state.read().await.event_seq;
+        let mut events = state.read().await.event_stream().subscribe();
+        for delta in [
+            AcpEvent::ContentDelta {
+                text: "late".into(),
+                parent_tool_use_id: None,
+            },
+            AcpEvent::Thinking {
+                text: "late".into(),
+                parent_tool_use_id: None,
+            },
+        ] {
+            emit_with_state(&state, &EventEmitter::Noop, delta).await;
+        }
+        assert!(events.try_recv().is_err(), "late delta reached live clients");
+        let s = state.read().await;
+        assert_eq!(s.event_seq, seq);
+        assert!(s.recent_events_after(seq).unwrap().is_empty());
+        assert!(s.live_message.is_none());
     }
 
     #[tokio::test]

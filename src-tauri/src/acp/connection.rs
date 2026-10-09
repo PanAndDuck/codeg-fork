@@ -35,7 +35,7 @@ use agent_client_protocol::{
     UntypedMessage,
 };
 use crate::acp::agent_process::AcpAgent;
-use crate::acp::agent_session::AgentSession;
+use crate::acp::agent_session::{AgentSession, SessionRead};
 use tokio::sync::{mpsc, oneshot, RwLock};
 
 use crate::acp::agent_mentions::append_agent_routes;
@@ -11109,13 +11109,10 @@ async fn run_conversation_loop(
                 // out of "this turn" and demote the most relevant evidence to a
                 // stale-looking `recent` fallback.
                 let stderr_mark = stderr_tail.mark();
-                // Use Box::pin (heap) instead of tokio::pin! (stack) so the
-                // future can be moved into a background task on cancel.
-                let mut prompt_response = Box::pin(
-                    cx.clone()
-                        .send_request_to(Agent, prompt_request)
-                        .block_task(),
-                );
+                // The boxed waiter can move into a background task on cancel.
+                // AgentSession releases it at the response's FIFO boundary.
+                let (prompt_id, mut prompt_response) = session.prompt(prompt_request);
+                let mut response_ready = false;
                 let mut tracked_terminal_tool_calls: HashMap<String, TrackedTerminalToolCall> =
                     HashMap::new();
                 let mut terminal_poll_interval = tokio::time::interval(
@@ -11193,12 +11190,22 @@ async fn run_conversation_loop(
                 // to avoid deadlocking when the agent awaits a permission response.
                 loop {
                     tokio::select! {
-                        update = session.read_update() => {
+                        update = session.read_update_or_response(), if !response_ready => {
                             // An `Err` is the session's router going away, not one bad
                             // message (see `AgentSession::read_update`): the connection
                             // is gone, and so is any answer to this prompt.
                             let dispatch = match update {
-                                Ok(dispatch) => fix_usage_update_nulls(dispatch),
+                                Ok(SessionRead::Dispatch(dispatch)) => fix_usage_update_nulls(*dispatch),
+                                Ok(SessionRead::PromptResponse(id)) => {
+                                    // Every preceding update has been fully
+                                    // applied/emitted. Stop at THIS response's
+                                    // boundary so later frames reach the idle
+                                    // loop. A canceled turn's marker can arrive
+                                    // during a newer turn and only releases its
+                                    // own background waiter.
+                                    response_ready = id == prompt_id;
+                                    continue;
+                                }
                                 Err(e) => return Err(defer_to_connection_report(e).await),
                             };
                             let h = emitter.clone();
@@ -11931,11 +11938,10 @@ async fn run_conversation_loop(
                                     }
                                     // Keep awaiting the prompt response, in the
                                     // background: the agent still owes its
-                                    // `cancelled` reply, and dropping the pending
-                                    // request instead would make the runtime send
-                                    // `$/cancel_request` on top of the
-                                    // `session/cancel` above — a second
-                                    // cancellation of the same turn.
+                                    // `cancelled` reply. The idle reader (or a
+                                    // later turn) releases this waiter when its
+                                    // response marker arrives. As before, no
+                                    // additional `$/cancel_request` is sent.
                                     tokio::spawn(async move {
                                         let _ = prompt_response.await;
                                     });
@@ -24858,11 +24864,20 @@ mod tests {
         let rejection = Client
             .builder()
             .connect_with(client_end, async |cx: ConnectionTo<Agent>| {
-                Ok(cx
-                    .send_request_to(Agent, PromptRequest::new(SessionId::new("s1"), Vec::new()))
-                    .block_task()
-                    .await
-                    .expect_err("nothing is left to answer the prompt"))
+                let mut session = AgentSession::attach(
+                    &cx,
+                    NewSessionResponse::new(SessionId::new("s1")),
+                )?;
+                let (_, mut response) =
+                    session.prompt(PromptRequest::new(SessionId::new("s1"), Vec::new()));
+                tokio::select! {
+                    update = session.read_update() => {
+                        panic!("EOF must resolve the prompt waiter, not yield an update: {update:?}")
+                    }
+                    result = &mut response => {
+                        Ok(result.expect_err("nothing is left to answer the prompt"))
+                    }
+                }
             })
             .await
             .expect("client connection");
@@ -31523,6 +31538,36 @@ mod tests {
             .collect()
     }
 
+    #[tokio::test]
+    async fn prompt_completion_captures_every_pre_response_chunk() {
+        let expected = (1..=20).map(|i| format!("line {i:06}\n")).collect::<String>();
+        let mut grok = GrokLoop::start(GrokScript {
+            in_turn: (1..=20)
+                .map(|i| grok_chunk("agent_message_chunk", &format!("line {i:06}\n"), Some("p1")))
+                .collect(),
+            prompt_id: "p1",
+            after_response: vec![
+                grok_chunk("agent_message_chunk", "late straggler", Some("p1")),
+                grok_barrier(),
+            ],
+            ..GrokScript::default()
+        }).await;
+        grok.prompt("stream").await;
+        let end = grok.after_turn_end().await;
+        grok.until_barrier().await;
+        let chunks: String = grok.seen[..end].iter().filter_map(|event| {
+            if let AcpEvent::ContentDelta { text, .. } = event { Some(text.as_str()) } else { None }
+        }).collect();
+        assert_eq!(chunks, expected, "all chunks must precede TurnComplete");
+        assert_eq!(turn_completes(&grok.seen), vec![(end, "end_turn".into())]);
+        assert!(!grok.seen[end + 1..].iter().any(|e| matches!(e, AcpEvent::ContentDelta { .. })));
+        let state = grok.state.read().await;
+        assert_eq!(state.last_assistant_text.as_deref(), Some(expected.as_str()));
+        assert!(state.to_snapshot().live_message.is_none());
+        drop(state);
+        grok.shutdown().await;
+    }
+
     /// The captured `/workflow codeg-probe` run: the launch turn, the run
     /// ticking between turns, and the follow-up turn Grok starts on its own
     /// once the run stops.
@@ -31769,14 +31814,11 @@ mod tests {
         let completes = turn_completes(&grok.seen);
         assert_eq!(completes.len(), 1, "ended once: {completes:?}");
         assert_eq!(completes[0].1, "cancelled");
-        let first_reaction = grok
-            .seen
-            .iter()
-            .position(|e| matches!(e, AcpEvent::Thinking { text, .. } if text == " me"))
-            .expect("Grok's post-cancel frames were read");
         assert!(
-            completes[0].0 < first_reaction,
-            "Stop ends the turn at once, not whenever Grok gets round to it"
+            !grok.seen[completes[0].0 + 1..]
+                .iter()
+                .any(|e| matches!(e, AcpEvent::Thinking { .. } | AcpEvent::ContentDelta { .. })),
+            "post-cancel stragglers must not reach clients; the script barrier proves they were read"
         );
         assert_eq!(
             prompting_edges(&grok.seen).len(),

@@ -264,6 +264,9 @@ pub struct SessionState {
     // 状态
     pub status: ConnectionStatus,
     pub live_message: Option<LiveMessage>,
+    /// A completed turn cannot acquire another live reply. Reset for session
+    /// establishment/replay and explicitly opened turns (including Grok's).
+    live_turn_closed: bool,
     pub active_tool_calls: BTreeMap<String, ToolCallState>,
     pub pending_permission: Option<PendingPermissionState>,
 
@@ -693,6 +696,7 @@ impl SessionState {
             folder_id,
             status: ConnectionStatus::Connecting,
             live_message: None,
+            live_turn_closed: false,
             active_tool_calls: BTreeMap::new(),
             pending_permission: None,
             pending_question: None,
@@ -783,12 +787,25 @@ impl SessionState {
         rx
     }
 
+    /// Unattributed chunks after a completed turn have no safe live owner.
+    /// Keep them out of both snapshots and the event stream. Initial replay
+    /// remains allowed; a new Prompting edge opens the next live turn.
+    pub(crate) fn is_late_turn_delta(&self, payload: &AcpEvent) -> bool {
+        self.live_turn_closed
+            && self.status != ConnectionStatus::Prompting
+            && matches!(payload, AcpEvent::ContentDelta { .. } | AcpEvent::Thinking { .. })
+    }
+
     /// 单一分发器：把一个 AcpEvent 应用到 self。注意此方法**不**自增 event_seq——
     /// seq 由 emit_with_state 在外层管理（这样 apply_event 可独立单元测试）。
     pub fn apply_event(&mut self, payload: &AcpEvent) {
+        if self.is_late_turn_delta(payload) {
+            return;
+        }
         match payload {
             AcpEvent::SessionStarted { session_id } => {
                 if self.external_id.as_deref() != Some(session_id.as_str()) {
+                    self.live_turn_closed = false;
                     self.external_id_changed_at = Some(std::time::SystemTime::now());
                     // The AIR task table is keyed to the session we just left.
                     // Its rows can never settle here again: the adapter
@@ -830,6 +847,7 @@ impl SessionState {
                     self.status
                 );
                 if matches!(status, ConnectionStatus::Prompting) {
+                    self.live_turn_closed = false;
                     // Match the live frontend reducer: a new prompt starts a
                     // new error scope, so stale recoverable errors must not be
                     // resurrected by a later snapshot attach.
@@ -888,7 +906,7 @@ impl SessionState {
                 // resurrect a stale `live_message` via `ensure_live_message`
                 // — a snapshot would then hand that ghost to every client
                 // (the same disease the #870 held-turn work fenced off).
-                // Main-thread chunks keep today's unconditional append.
+                // Post-completion main-thread chunks were fenced above.
                 self.settle_retry_incidents_on_progress();
                 if parent_tool_use_id.is_none() || self.status == ConnectionStatus::Prompting {
                     self.append_text_delta(text, parent_tool_use_id.as_deref());
@@ -1048,6 +1066,7 @@ impl SessionState {
                 }
             }
             AcpEvent::TurnComplete { stop_reason, .. } => {
+                self.live_turn_closed = true;
                 // Diagnostic only (no behavior change): pairs with the
                 // StatusChanged log above. This is the ACTUAL point the turn
                 // settles (`self.status` flips to `Connected` right below,
@@ -3438,6 +3457,46 @@ mod tests {
             matches!(result, Ok(Err(_))),
             "rx must receive Err when sender drops without sending; got {result:?}"
         );
+    }
+
+    #[test]
+    fn late_turn_deltas_do_not_recreate_live_message() {
+        for reason in ["end_turn", "cancelled", "rejected"] {
+            let mut s = fresh_state();
+            s.status = ConnectionStatus::Prompting;
+            s.apply_event(&AcpEvent::ContentDelta {
+                text: "final answer".into(),
+                parent_tool_use_id: None,
+            });
+            s.apply_event(&AcpEvent::TurnComplete {
+                session_id: "sess-1".into(),
+                stop_reason: reason.into(),
+                agent_type: "claude_code".into(),
+            });
+            for delta in [
+                AcpEvent::ContentDelta {
+                    text: "late text".into(),
+                    parent_tool_use_id: None,
+                },
+                AcpEvent::Thinking {
+                    text: "late thought".into(),
+                    parent_tool_use_id: None,
+                },
+            ] {
+                s.apply_event(&delta);
+                assert!(s.live_message.is_none(), "{reason}: late delta revived turn");
+                assert!(s.to_snapshot().live_message.is_none());
+                assert_eq!(s.last_assistant_text.as_deref(), Some("final answer"));
+            }
+            s.apply_event(&AcpEvent::StatusChanged {
+                status: ConnectionStatus::Prompting,
+            });
+            s.apply_event(&AcpEvent::ContentDelta {
+                text: "next turn".into(),
+                parent_tool_use_id: None,
+            });
+            assert_eq!(s.latest_live_reply(100).as_deref(), Some("next turn"));
+        }
     }
 
     #[test]
