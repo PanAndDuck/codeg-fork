@@ -58,6 +58,7 @@ import { describeAppUpdateError, usesTauriUpdater } from "@/lib/updater"
 import { useAppUpdate } from "@/components/providers/update-provider"
 import { APP_LOCALES } from "@/lib/i18n"
 import { toErrorMessage } from "@/lib/app-error"
+import { formatBuildVersion, UPDATER_ENABLED } from "@/lib/flavor"
 import type { AppCommandError } from "@/lib/types"
 
 function GithubMarkIcon({ className }: { className?: string }) {
@@ -465,217 +466,230 @@ export function SystemNetworkSettings() {
           </p>
         </section>
 
-        <section className="rounded-xl border bg-card p-4 space-y-4">
-          <div className="flex items-center gap-2">
-            {checkingUpdate ? (
-              <RefreshCw className="h-4 w-4 text-muted-foreground animate-spin" />
-            ) : availableUpdate ? (
-              <ArrowUpCircle className="h-4 w-4 text-muted-foreground" />
-            ) : lastCheckedAt ? (
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-            ) : (
-              <RefreshCw className="h-4 w-4 text-muted-foreground" />
-            )}
-            <h2 className="text-sm font-semibold">{t("versionTitle")}</h2>
-          </div>
-
-          <p className="text-xs text-muted-foreground leading-5">
-            {t("updateDescription")}
-          </p>
-
-          <div className="rounded-md border bg-muted/20 px-3 py-3 text-xs space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-muted-foreground">
-                {t("currentVersion")}：
-                {currentVersion ? `v${currentVersion}` : "-"}
-              </p>
+        {UPDATER_ENABLED ? (
+          <section className="rounded-xl border bg-card p-4 space-y-4">
+            <div className="flex items-center gap-2">
               {checkingUpdate ? (
-                <Button
-                  key="checking-update"
-                  size="sm"
-                  disabled
-                  aria-busy="true"
-                  className="w-[9.5rem] justify-center transition-none"
-                >
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  {t("checking")}
-                </Button>
-              ) : updateReady ? (
-                // Download finished in the background — relaunch into it
-                // (IDE-style "Restart to update").
-                <Button
-                  size="sm"
-                  onClick={() => void restart()}
-                  disabled={isBusy}
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  {t("restartToUpdate")}
-                </Button>
-              ) : isBusy ? (
-                <Button
-                  size="sm"
-                  disabled
-                  aria-busy="true"
-                  className="w-[9.5rem] justify-center transition-none"
-                >
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  {t("updating")}
-                </Button>
+                <RefreshCw className="h-4 w-4 text-muted-foreground animate-spin" />
               ) : availableUpdate ? (
-                // In-place upgrade only when this client can actually drive it:
-                // desktop (Tauri plugin) or a server speaking the live-progress
-                // protocol. An older remote server falls back to "view release".
-                canInstallInPlace ? (
-                  <Button size="sm" onClick={() => void startUpdate()}>
-                    <ArrowUpCircle className="h-3.5 w-3.5" />
-                    {t("upgradeTo", { version: availableUpdate.version })}
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    onClick={() =>
-                      openUrl(
-                        "https://github.com/spacering-net/codeg/releases/latest"
-                      )
-                    }
-                  >
-                    <ArrowUpCircle className="h-3.5 w-3.5" />
-                    {t("viewRelease", { version: availableUpdate.version })}
-                  </Button>
-                )
+                <ArrowUpCircle className="h-4 w-4 text-muted-foreground" />
+              ) : lastCheckedAt ? (
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
               ) : (
-                <Button
-                  key="check-update"
-                  size="sm"
-                  onClick={checkForUpdates}
-                  disabled={isBusy}
-                  className="w-[9.5rem] justify-center transition-none"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  {t("checkUpdate")}
-                </Button>
+                <RefreshCw className="h-4 w-4 text-muted-foreground" />
               )}
+              <h2 className="text-sm font-semibold">{t("versionTitle")}</h2>
             </div>
 
-            {!availableUpdate && formattedLastCheckedAt && (
-              <p className="text-muted-foreground">
-                {t("lastChecked", { time: formattedLastCheckedAt })}
-              </p>
-            )}
+            <p className="text-xs text-muted-foreground leading-5">
+              {t("updateDescription")}
+            </p>
 
-            {updateStatusMessage && !isUpdating && (
-              <p className="text-muted-foreground">{updateStatusMessage}</p>
-            )}
-
-            {isUpdating && (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>
-                    {updateState.status === "downloading"
-                      ? t("downloading")
-                      : t("updating")}
-                  </span>
-                  {updateState.status === "downloading" && (
-                    <span>
-                      {formatBytes(updateState.downloaded ?? 0)}
-                      {updateState.total
-                        ? ` / ${formatBytes(updateState.total)}`
-                        : ""}
-                    </span>
-                  )}
-                </div>
-                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                  {downloadDeterminate ? (
-                    <div
-                      className="h-full rounded-full bg-primary transition-all duration-300"
-                      style={{ width: `${downloadPercent}%` }}
-                    />
+            <div className="rounded-md border bg-muted/20 px-3 py-3 text-xs space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-muted-foreground">
+                  {t("currentVersion")}：
+                  {currentVersion
+                    ? `v${formatBuildVersion(currentVersion)}`
+                    : "-"}
+                </p>
+                {checkingUpdate ? (
+                  <Button
+                    key="checking-update"
+                    size="sm"
+                    disabled
+                    aria-busy="true"
+                    className="w-[9.5rem] justify-center transition-none"
+                  >
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    {t("checking")}
+                  </Button>
+                ) : updateReady ? (
+                  // Download finished in the background — relaunch into it
+                  // (IDE-style "Restart to update").
+                  <Button
+                    size="sm"
+                    onClick={() => void restart()}
+                    disabled={isBusy}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    {t("restartToUpdate")}
+                  </Button>
+                ) : isBusy ? (
+                  <Button
+                    size="sm"
+                    disabled
+                    aria-busy="true"
+                    className="w-[9.5rem] justify-center transition-none"
+                  >
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    {t("updating")}
+                  </Button>
+                ) : availableUpdate ? (
+                  // In-place upgrade only when this client can actually drive it:
+                  // desktop (Tauri plugin) or a server speaking the live-progress
+                  // protocol. An older remote server falls back to "view release".
+                  canInstallInPlace ? (
+                    <Button size="sm" onClick={() => void startUpdate()}>
+                      <ArrowUpCircle className="h-3.5 w-3.5" />
+                      {t("upgradeTo", { version: availableUpdate.version })}
+                    </Button>
                   ) : (
-                    <div className="h-full w-1/3 rounded-full bg-primary animate-pulse" />
-                  )}
-                </div>
+                    <Button
+                      size="sm"
+                      onClick={() =>
+                        openUrl(
+                          "https://github.com/spacering-net/codeg/releases/latest"
+                        )
+                      }
+                    >
+                      <ArrowUpCircle className="h-3.5 w-3.5" />
+                      {t("viewRelease", { version: availableUpdate.version })}
+                    </Button>
+                  )
+                ) : (
+                  <Button
+                    key="check-update"
+                    size="sm"
+                    onClick={checkForUpdates}
+                    disabled={isBusy}
+                    className="w-[9.5rem] justify-center transition-none"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    {t("checkUpdate")}
+                  </Button>
+                )}
               </div>
-            )}
 
-            {updateReady && (
-              <p className="text-muted-foreground">{t("updateReadyHint")}</p>
-            )}
-
-            {restartCountdown !== null && (
-              <p className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                {restartCountdown > 0
-                  ? t("restartingIn", { seconds: restartCountdown })
-                  : t("waitingForServer")}
-              </p>
-            )}
-
-            {canRollback && (
-              <div className="flex items-center justify-between gap-3 pt-1">
-                <span className="text-muted-foreground/80 text-2xs leading-5">
-                  {t("rollbackDescription")}
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setRollbackConfirmOpen(true)}
-                  disabled={isBusy}
-                >
-                  {isRollingBack ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      {t("rollingBack")}
-                    </>
-                  ) : (
-                    <>
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      {t("rollbackButton")}
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
-
-            {blockerHint && (
-              <p className="text-2xs leading-5 text-amber-500">{blockerHint}</p>
-            )}
-
-            {availableUpdate &&
-              serverSelfUpdate &&
-              !selfUpdateBlocker &&
-              serverRuntime === "docker" && (
-                <p className="text-muted-foreground/80 text-2xs leading-5">
-                  {t("dockerUpgradeHint")}
+              {!availableUpdate && formattedLastCheckedAt && (
+                <p className="text-muted-foreground">
+                  {t("lastChecked", { time: formattedLastCheckedAt })}
                 </p>
               )}
 
-            {availableUpdate && (
-              <div className="space-y-2 pt-2 border-t border-border/70">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-medium">
-                    {t("upgradableVersion")}：v{availableUpdate.version}
-                  </span>
-                  {formattedUpdateDate && (
-                    <span className="text-muted-foreground text-2xs">
-                      {formattedUpdateDate}
+              {updateStatusMessage && !isUpdating && (
+                <p className="text-muted-foreground">{updateStatusMessage}</p>
+              )}
+
+              {isUpdating && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>
+                      {updateState.status === "downloading"
+                        ? t("downloading")
+                        : t("updating")}
                     </span>
-                  )}
+                    {updateState.status === "downloading" && (
+                      <span>
+                        {formatBytes(updateState.downloaded ?? 0)}
+                        {updateState.total
+                          ? ` / ${formatBytes(updateState.total)}`
+                          : ""}
+                      </span>
+                    )}
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    {downloadDeterminate ? (
+                      <div
+                        className="h-full rounded-full bg-primary transition-all duration-300"
+                        style={{ width: `${downloadPercent}%` }}
+                      />
+                    ) : (
+                      <div className="h-full w-1/3 rounded-full bg-primary animate-pulse" />
+                    )}
+                  </div>
                 </div>
-                <ReleaseNotes
-                  notes={updateNotes}
-                  emptyLabel={t("none")}
-                  className="mt-3 max-h-72 overflow-auto rounded-md border bg-background/70 px-3 py-3"
-                />
+              )}
+
+              {updateReady && (
+                <p className="text-muted-foreground">{t("updateReadyHint")}</p>
+              )}
+
+              {restartCountdown !== null && (
+                <p className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  {restartCountdown > 0
+                    ? t("restartingIn", { seconds: restartCountdown })
+                    : t("waitingForServer")}
+                </p>
+              )}
+
+              {canRollback && (
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <span className="text-muted-foreground/80 text-2xs leading-5">
+                    {t("rollbackDescription")}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setRollbackConfirmOpen(true)}
+                    disabled={isBusy}
+                  >
+                    {isRollingBack ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        {t("rollingBack")}
+                      </>
+                    ) : (
+                      <>
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        {t("rollbackButton")}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              {blockerHint && (
+                <p className="text-2xs leading-5 text-amber-500">
+                  {blockerHint}
+                </p>
+              )}
+
+              {availableUpdate &&
+                serverSelfUpdate &&
+                !selfUpdateBlocker &&
+                serverRuntime === "docker" && (
+                  <p className="text-muted-foreground/80 text-2xs leading-5">
+                    {t("dockerUpgradeHint")}
+                  </p>
+                )}
+
+              {availableUpdate && (
+                <div className="space-y-2 pt-2 border-t border-border/70">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium">
+                      {t("upgradableVersion")}：v{availableUpdate.version}
+                    </span>
+                    {formattedUpdateDate && (
+                      <span className="text-muted-foreground text-2xs">
+                        {formattedUpdateDate}
+                      </span>
+                    )}
+                  </div>
+                  <ReleaseNotes
+                    notes={updateNotes}
+                    emptyLabel={t("none")}
+                    className="mt-3 max-h-72 overflow-auto rounded-md border bg-background/70 px-3 py-3"
+                  />
+                </div>
+              )}
+            </div>
+
+            {bannerError && (
+              <div className="rounded-md border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs text-red-400">
+                {t("updateError", { message: bannerError })}
               </div>
             )}
-          </div>
-
-          {bannerError && (
-            <div className="rounded-md border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs text-red-400">
-              {t("updateError", { message: bannerError })}
-            </div>
-          )}
-        </section>
+          </section>
+        ) : (
+          <SettingsSection title={t("versionTitle")}>
+            <p className="text-xs text-muted-foreground">
+              {t("currentVersion")}：
+              {currentVersion ? formatBuildVersion(currentVersion) : "-"}
+            </p>
+          </SettingsSection>
+        )}
 
         {/* Titled by the option itself: the section *is* the one switch, so a
             card holding a single row would only say the heading back one line

@@ -14,6 +14,7 @@ import {
 import { openUrl } from "@/lib/platform"
 import { describeAppUpdateError } from "@/lib/updater"
 import { cn } from "@/lib/utils"
+import { UPDATER_ENABLED } from "@/lib/flavor"
 
 // The markdown stack is a settings-side dependency; keep it out of the
 // workspace's first load and pull it in only when someone opens the popover.
@@ -118,7 +119,7 @@ export function StatusBarUpdate() {
   const [open, setOpen] = useState(false)
   const update = useAppUpdate()
 
-  if (!update) return null
+  if (!UPDATER_ENABLED || !update) return null
 
   const {
     state,

@@ -45,8 +45,8 @@ fn default_roots_use_the_compiled_flavor_without_reading_state() {
 }
 
 #[tokio::test]
-async fn fork_update_check_is_local_and_cannot_fetch_official_manifest() {
-    if flavor::current() != flavor::Flavor::Fork {
+async fn disabled_update_check_is_local_and_cannot_fetch_official_manifest() {
+    if flavor::current().updater_enabled() {
         return;
     }
     let result = codeg_lib::web::handlers::web_server::check_app_update()

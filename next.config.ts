@@ -28,6 +28,9 @@ const withNextIntl = createNextIntlPlugin({
 
 const nextConfig: NextConfig = {
   output: "export",
+  env: {
+    NEXT_PUBLIC_CODEG_BUILD_COMMIT: process.env.CODEG_BUILD_COMMIT ?? "",
+  },
   images: {
     unoptimized: true,
   },

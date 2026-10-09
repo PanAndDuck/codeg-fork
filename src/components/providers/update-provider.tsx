@@ -11,6 +11,7 @@ import {
 } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
+import { UPDATER_ENABLED } from "@/lib/flavor"
 import {
   type AppUpdateInfo,
   type AppUpdateState,
@@ -678,6 +679,7 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
   }, [available])
 
   useEffect(() => {
+    if (!UPDATER_ENABLED) return
     let cancelled = false
 
     const maybeCheck = () => {

@@ -68,10 +68,12 @@ impl Flavor {
     }
 
     pub const fn updater_enabled(self) -> bool {
-        match self {
-            Self::Official => true,
-            Self::Fork => false,
-        }
+        self.updater_enabled_for(option_env!("CODEG_UPDATER"))
+    }
+
+    const fn updater_enabled_for(self, setting: Option<&str>) -> bool {
+        let disabled = matches!(setting, Some(value) if matches!(value.as_bytes(), b"off"));
+        matches!(self, Self::Official) && !disabled
     }
 
     pub const fn shared_config_writes_enabled(self) -> bool {
@@ -137,7 +139,7 @@ mod tests {
         assert_eq!(Flavor::Official.keyring_service(), "codeg");
         assert_eq!(Flavor::Official.deep_link_scheme(), "codeg");
         assert_eq!(Flavor::Official.default_web_port(), 3080);
-        assert!(Flavor::Official.updater_enabled());
+        assert!(Flavor::Official.updater_enabled_for(None));
         assert!(Flavor::Official.shared_config_writes_enabled());
         assert_eq!(
             Flavor::Official.computer_helper_bundle_id(),
@@ -171,5 +173,24 @@ mod tests {
     #[test]
     fn build_environment_selects_identity() {
         assert_eq!(current(), Flavor::from_value(option_env!("CODEG_FLAVOR")));
+    }
+
+    #[test]
+    fn build_environment_can_disable_official_updates() {
+        assert_eq!(
+            Flavor::Official.updater_enabled(),
+            option_env!("CODEG_UPDATER") != Some("off")
+        );
+        assert!(!Flavor::Fork.updater_enabled());
+    }
+
+    #[test]
+    fn updater_switch_preserves_default_and_never_enables_fork() {
+        for value in [None, Some(""), Some("on"), Some("OFF"), Some("off ")] {
+            assert!(Flavor::Official.updater_enabled_for(value));
+            assert!(!Flavor::Fork.updater_enabled_for(value));
+        }
+        assert!(!Flavor::Official.updater_enabled_for(Some("off")));
+        assert!(!Flavor::Fork.updater_enabled_for(Some("off")));
     }
 }
