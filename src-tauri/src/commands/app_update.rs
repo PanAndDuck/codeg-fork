@@ -35,7 +35,7 @@ pub async fn perform_app_update(
 ) -> Result<AppUpdateState, AppCommandError> {
     if !crate::flavor::current().updater_enabled() {
         return Err(AppCommandError::invalid_input(
-            "Updates are disabled in Codeg-Fork",
+            "Updates are disabled in this build",
         ));
     }
     let handle = state.inner().clone();
