@@ -112,6 +112,16 @@ fn encode(value: &Der<'_>, out: &mut Vec<u8>) {
 /// `validation-category` for code signed with a Developer ID certificate.
 const VALIDATION_DEVELOPER_ID: i64 = 6;
 
+// CS_VALIDATION_CATEGORY_DEVELOPMENT in Apple's cs_blobs.h.
+const VALIDATION_DEVELOPMENT: i64 = 3;
+
+const fn helper_validation_category(signing: Option<&str>) -> i64 {
+    match signing {
+        Some(value) if matches!(value.as_bytes(), b"development") => VALIDATION_DEVELOPMENT,
+        _ => VALIDATION_DEVELOPER_ID,
+    }
+}
+
 /// The whole requirement for `facts`, as `NSTask.launchRequirementData` holds
 /// it.
 fn requirement(facts: Vec<(&str, Der<'_>)>) -> Vec<u8> {
@@ -154,13 +164,19 @@ pub fn pinned_build(team_id: &str, identifier: &str, cdhashes: &[&str]) -> Optio
     ]))
 }
 
-/// Developer-ID-signed code from `team_id` with signing identifier
-/// `identifier`, any build.
+/// Code from `team_id` with signing identifier `identifier`, any build.
+/// Selfhost builds opt into Apple Development; release builds keep Developer ID.
+/// The separately pinned driver always retains its Developer ID requirement.
 pub fn signed_by(team_id: &str, identifier: &str) -> Vec<u8> {
     requirement(vec![
         ("signing-identifier", Der::Str(identifier)),
         ("team-identifier", Der::Str(team_id)),
-        ("validation-category", Der::Int(VALIDATION_DEVELOPER_ID)),
+        (
+            "validation-category",
+            Der::Int(helper_validation_category(option_env!(
+                "CODEG_COMPUTER_SIGNING"
+            ))),
+        ),
     ])
 }
 
@@ -204,10 +220,7 @@ pub(crate) fn held_here() -> bool {
 /// # Safety
 ///
 /// `attr` must be an initialised `posix_spawnattr_t`.
-pub unsafe fn apply(
-    attr: &mut libc::posix_spawnattr_t,
-    requirement: &[u8],
-) -> std::io::Result<()> {
+pub unsafe fn apply(attr: &mut libc::posix_spawnattr_t, requirement: &[u8]) -> std::io::Result<()> {
     let set = set_fn().ok_or_else(|| {
         std::io::Error::other(
             "computer use needs macOS 14.4 or later, the first to let a launch be held to a \
@@ -262,14 +275,28 @@ mod tests {
     /// The same for team, identifier and category alone.
     #[test]
     fn the_helper_requirement_is_what_apple_encodes() {
-        let apple = unhex(
+        let mut apple = unhex(
             "708197020101b0819130090c046363617402010030090c04636f6d70020101306e0c0472\
              657173b066302b0c127369676e696e672d6964656e7469666965720c15636f6465672d63\
              6f6d70757465722d68656c706572301d0c0f7465616d2d6964656e7469666965720c0a41\
              42434445313233343530180c1376616c69646174696f6e2d63617465676f727902010630\
              090c0476657273020101",
         );
+        if option_env!("CODEG_COMPUTER_SIGNING") == Some("development") {
+            // Only the category integer changes from Developer ID (6) to
+            // Development (3); the team and signing identifier stay pinned.
+            let category = apple.windows(3).rposition(|w| w == [2, 1, 6]).unwrap();
+            apple[category + 2] = 3;
+        }
         assert_eq!(signed_by("ABCDE12345", "codeg-computer-helper"), apple);
+    }
+
+    #[test]
+    fn only_explicit_development_changes_the_helper_category() {
+        assert_eq!(helper_validation_category(Some("development")), 3);
+        for value in [None, Some(""), Some("developer-id"), Some("Development")] {
+            assert_eq!(helper_validation_category(value), 6);
+        }
     }
 
     #[test]

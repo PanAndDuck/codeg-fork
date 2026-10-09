@@ -130,6 +130,9 @@ export function subscribeAppUpdateState(
  * download runs detached in the backend, so it is not bound to this call's
  * lifetime. */
 export function startAppUpdate(): Promise<AppUpdateState> {
+  if (!UPDATER_ENABLED) {
+    return Promise.reject(new Error("Updates are disabled in this build"))
+  }
   return getTransport().call<AppUpdateState>("perform_app_update")
 }
 
@@ -382,6 +385,9 @@ export async function relaunchApp(): Promise<void> {
 
 /** Revert to the previously-installed bundle (kept as `.bak`). */
 export async function rollbackServer(): Promise<ServerUpdateActionResult> {
+  if (!UPDATER_ENABLED) {
+    throw new Error("Updates are disabled in this build")
+  }
   return getTransport().call<ServerUpdateActionResult>("rollback_app")
 }
 

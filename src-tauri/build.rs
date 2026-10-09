@@ -1,5 +1,7 @@
 fn main() {
     println!("cargo:rerun-if-env-changed=CODEG_FLAVOR");
+    println!("cargo:rerun-if-env-changed=CODEG_UPDATER");
+    println!("cargo:rerun-if-env-changed=CODEG_COMPUTER_SIGNING");
     fingerprint_helper_sources();
     #[cfg(feature = "tauri-runtime")]
     {

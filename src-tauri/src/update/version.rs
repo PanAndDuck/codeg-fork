@@ -73,7 +73,7 @@ pub struct LatestManifest {
 pub async fn fetch_latest_manifest() -> Result<LatestManifest, AppCommandError> {
     if !crate::flavor::current().updater_enabled() {
         return Err(AppCommandError::invalid_input(
-            "Updates are disabled in Codeg-Fork",
+            "Updates are disabled in this build",
         ));
     }
     let client = manifest_client()?;

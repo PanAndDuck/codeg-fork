@@ -115,7 +115,7 @@ fn trial_seconds_value() -> u64 {
 fn ensure_supported() -> Result<(), AppCommandError> {
     if !crate::flavor::current().updater_enabled() {
         return Err(AppCommandError::invalid_input(
-            "Updates are disabled in Codeg-Fork",
+            "Updates are disabled in this build",
         ));
     }
     if cfg!(target_os = "windows") {

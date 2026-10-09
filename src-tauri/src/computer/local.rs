@@ -1132,7 +1132,8 @@ fn helper_environment() -> Vec<(String, String)> {
 }
 
 /// What the kernel holds a helper launch to in a release build: this team's
-/// Developer ID build of the helper, and nothing else from that path.
+/// signed build of the helper, and nothing else from that path. The signing
+/// category defaults to Developer ID; selfhost builds select Development.
 #[cfg(target_os = "macos")]
 fn helper_launch_requirement() -> Option<Vec<u8>> {
     HELPER_TEAM_ID
