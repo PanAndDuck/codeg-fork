@@ -39,7 +39,8 @@ unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD TAURI_CONFIG
 export PATH="/opt/homebrew/opt/rustup/bin:$PATH"
 export CARGO_BUILD_JOBS=4 CARGO_TARGET_DIR="$ROOT/src-tauri/target"
 export CODEG_UPDATER=off NEXT_PUBLIC_CODEG_UPDATER=off
-export CODEG_BUILD_COMMIT="$(git rev-parse --short HEAD)"
+CODEG_BUILD_COMMIT="$(git rev-parse --short HEAD)"
+export CODEG_BUILD_COMMIT
 export CODEG_COMPUTER_SIGNING=development
 export APPLE_SIGNING_IDENTITY=YOUR_SIGNING_IDENTITY_SHA1
 export CODEG_COMPUTER_TEAM_ID=YOUR_TEAM_ID
@@ -53,6 +54,20 @@ trap 'rm -rf "$BUILD_TMP"' EXIT
 export CODEG_HOME="$BUILD_TMP/home" CODEG_DATA_DIR="$BUILD_TMP/data"
 export CODEG_ACP_TMP_ROOT="$BUILD_TMP/acp"
 mkdir -p "$CODEG_HOME" "$CODEG_DATA_DIR" "$CODEG_ACP_TMP_ROOT"
+
+# Tauri merges this plist before signing; keep build-specific files temporary.
+python3 - "$BUILD_TMP" "$CODEG_BUILD_COMMIT" <<'PY'
+import json
+from pathlib import Path
+import plistlib
+import sys
+
+directory = Path(sys.argv[1])
+plist = directory / 'Info.plist'
+plist.write_bytes(plistlib.dumps({'CodegBuildCommit': sys.argv[2]}))
+(directory / 'build-commit.conf.json').write_text(
+    json.dumps({'bundle': {'macOS': {'infoPlist': str(plist)}}}), encoding='utf-8')
+PY
 
 PNPM_PACKAGE="$(node -p "require('./package.json').packageManager")"
 if [[ "$(pnpm --version 2>/dev/null || true)" != "${PNPM_PACKAGE#pnpm@}" ]]; then
@@ -68,7 +83,8 @@ HELPER="$ROOT/src-tauri/binaries/codeg-computer-helper.app"
 codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$HELPER"
 codesign --verify --strict -R="$CODEG_COMPUTER_HELPER_REQUIREMENT" "$HELPER"
 export CODEG_SKIP_SIDECAR=1
-pnpm tauri build --config src-tauri/tauri.selfhost.conf.json --bundles app
+pnpm tauri build --config src-tauri/tauri.selfhost.conf.json \
+  --config "$BUILD_TMP/build-commit.conf.json" --bundles app
 
 APP="$ROOT/src-tauri/target/release/bundle/macos/codeg.app"
 PLIST="$APP/Contents/Info.plist"
@@ -76,6 +92,10 @@ IDENTIFIER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PLIST")"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")"
 NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$PLIST")"
 SCHEME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes:0:CFBundleURLSchemes:0' "$PLIST")"
+BUILD_COMMIT="$(/usr/libexec/PlistBuddy -c 'Print :CodegBuildCommit' "$PLIST")"
+[[ "$BUILD_COMMIT" == "$CODEG_BUILD_COMMIT" ]] || {
+  echo "Refusing missing or mismatched CodegBuildCommit" >&2; exit 1;
+}
 [[ "$IDENTIFIER" == app.codeg && "$NAME" == codeg && "$VERSION" == 0.34.0 && "$SCHEME" == codeg ]] || {
   echo "Refusing unexpected app identity/version" >&2; exit 1;
 }
