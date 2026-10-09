@@ -20,12 +20,6 @@ export CARGO_TARGET_DIR="$ROOT/src-tauri/target"
 unset CODEG_SKIP_SIDECAR CODEG_COMPUTER_PEER_REQUIREMENT
 unset CODEG_COMPUTER_HELPER_REQUIREMENT CODEG_COMPUTER_TEAM_ID
 export APPLE_SIGNING_IDENTITY=-
-# Keep the program's pnpm 10 requirement local; do not alter packageManager or
-# the user's Corepack/pnpm configuration (the upstream package pins pnpm 11).
-export npm_config_manage_package_manager_versions=false
-export npm_config_package_manager_strict=false
-pnpm() { npm exec --yes --package=pnpm@10.34.6 -- pnpm "$@"; }
-
 BUNDLES=app
 INSTALL=false
 for arg in "$@"; do
@@ -39,7 +33,13 @@ for arg in "$@"; do
   esac
 done
 
-pnpm install --frozen-lockfile --prefer-offline
+# Use the repository pin without changing global package-manager configuration.
+PNPM_PACKAGE="$(node -p "require('./package.json').packageManager")"
+if [[ "$(pnpm --version 2>/dev/null || true)" != "${PNPM_PACKAGE#pnpm@}" ]]; then
+  pnpm() { npm exec --yes --package="$PNPM_PACKAGE" -- pnpm "$@"; }
+fi
+
+CI=true pnpm install --frozen-lockfile --prefer-offline
 pnpm tauri build --config src-tauri/tauri.fork.conf.json --bundles "$BUNDLES"
 
 APP="$ROOT/src-tauri/target/release/bundle/macos/Codeg-Fork.app"
