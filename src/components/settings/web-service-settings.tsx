@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
 import { useTranslations } from "next-intl"
+import { toast } from "sonner"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
@@ -224,6 +225,12 @@ export function AddressQrcodeDialog({
     setRevealedFor(null)
   }
 
+  async function handleCopyPairingCode() {
+    if (activeMode === "lan" || !revealed || !token) return
+    const ok = await copyTextToClipboard(payload)
+    if (ok) toast.success(t("pairing.copied"))
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
@@ -288,6 +295,17 @@ export function AddressQrcodeDialog({
                 marginSize={0}
               />
             </div>
+          )}
+          {activeMode !== "lan" && revealed && !!token && (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-auto whitespace-normal py-2"
+              onClick={handleCopyPairingCode}
+            >
+              <Copy className="h-4 w-4 shrink-0" />
+              {t("pairing.copy")}
+            </Button>
           )}
           <code className="text-center text-xs break-all text-muted-foreground select-all">
             {url}

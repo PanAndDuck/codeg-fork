@@ -4126,6 +4126,8 @@
       }
     },
     "pairing": {
+      "copy": "Kopplungscode kopieren",
+      "copied": "Kopiert — enthält Ihr Zugriffstoken",
       "lan": "LAN",
       "relay": "Relay",
       "lanToken": "LAN + Token",

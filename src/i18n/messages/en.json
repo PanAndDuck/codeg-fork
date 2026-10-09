@@ -4126,6 +4126,8 @@
       }
     },
     "pairing": {
+      "copy": "Copy pairing code",
+      "copied": "Copied — contains your access token",
       "lan": "LAN",
       "relay": "Relay",
       "lanToken": "LAN + token",

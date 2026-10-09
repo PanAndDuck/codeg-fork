@@ -4126,6 +4126,8 @@
       }
     },
     "pairing": {
+      "copy": "複製配對碼",
+      "copied": "已複製 — 包含您的存取權杖",
       "lan": "區域網路",
       "relay": "中繼",
       "lanToken": "區域網路 + Token",
