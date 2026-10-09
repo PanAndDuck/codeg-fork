@@ -109,7 +109,7 @@ if env | grep '^CODEG'; then exit 1; fi
 ```
 
 Defaults, if no port flags: relay 18443, server 3091, proxy 18444, control 18445.
-Server ports must be 3090–3099, relay/proxy 18400–18499, control 18445–18449.
+Server ports must be 3090–3099, relay/proxy 18400–18499, control 18445–18499.
 `--no-proxy` starts only relay + server. `restart-proxy` also starts a missing proxy.
 
 ## Mock language

@@ -465,8 +465,8 @@ if __name__ == "__main__":
     parser.add_argument("--cert")
     parser.add_argument("--key")
     args = parser.parse_args()
-    if not all(18400 <= p <= 18499 for p in (args.port, args.upstream_port)) or not 18445 <= args.control_port <= 18449:
-        parser.error("data ports must be 18400–18499; control 18445–18449")
+    if not all(18400 <= p <= 18499 for p in (args.port, args.upstream_port)) or not 18445 <= args.control_port <= 18499:
+        parser.error("data ports must be 18400–18499; control 18445–18499")
     if len({args.port, args.control_port, args.upstream_port}) != 3:
         parser.error("ports must be distinct")
     if args.mode == "terminate" and (not args.cert or not args.key):

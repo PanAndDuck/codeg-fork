@@ -115,8 +115,8 @@ def atomic_write(path, content):
 
 def free_ports(state):
     ports = [state[k] for k in ("relay_port", "server_port", "proxy_port", "control_port")]
-    if len(set(ports)) != 4 or not 3090 <= state["server_port"] <= 3099 or not 18445 <= state["control_port"] <= 18449:
-        raise ValueError("distinct ports required: server 3090–3099; control 18445–18449")
+    if len(set(ports)) != 4 or not 3090 <= state["server_port"] <= 3099 or not 18445 <= state["control_port"] <= 18499:
+        raise ValueError("distinct ports required: server 3090–3099; control 18445–18499")
     for port in (state["relay_port"], state["proxy_port"]):
         if not 18400 <= port <= 18499:
             raise ValueError("relay/proxy ports must be 18400–18499")
