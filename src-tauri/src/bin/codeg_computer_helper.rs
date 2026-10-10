@@ -14,6 +14,12 @@ use codeg_lib::computer::helper::{run, EXIT_FAILED};
 use codeg_lib::computer::protocol::{OsPermission, PermissionAsked, REQUEST_PERMISSION_ARG};
 
 fn main() {
+    // Refuse even direct invocations, including permission requests, before
+    // opening a channel, touching helper state or starting the driver.
+    if let Some(why) = codeg_lib::computer::unsigned_build_reason() {
+        eprintln!("{why}");
+        std::process::exit(EXIT_FAILED);
+    }
     // SAFETY: before helper initialization or permission handling.
     unsafe { codeg_lib::paths::isolate_fork_environment() };
     let mut args = std::env::args().skip(1);

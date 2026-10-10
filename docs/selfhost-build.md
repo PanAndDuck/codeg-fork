@@ -1,39 +1,67 @@
 # Selfhost macOS build
 
-`scripts/build-selfhost.sh --stage` builds the official `codeg` identity
-(`app.codeg`, `codeg://`, port 3080, existing data/keyring locations), signed
-with Apple Development certificate SHA-1
-`YOUR_SIGNING_IDENTITY_SHA1` (team `YOUR_TEAM_ID`).
+`scripts/build-selfhost.sh` builds the official `codeg` identity (`app.codeg`,
+`codeg://`, port 3080 and existing data/keyring locations). It never launches
+or installs the app. Do not launch it alongside another official-identity app.
 
-The script only copies to `~/Applications/codeg-staged/codeg.app`. It refuses
-an existing destination or redirected stage directories. It never launches
-the app or writes to `/Applications`. Do not launch the staged app while the
-official app is running: they intentionally share all data and ports.
+## Choose signing explicitly
 
-The build sets `CODEG_UPDATER=off` and `NEXT_PUBLIC_CODEG_UPDATER=off`, leaves
-`CODEG_FLAVOR` unset, and uses `tauri.selfhost.conf.json` to remove updater
-endpoints/artifacts. Normal official builds retain their updater defaults;
-Fork builds remain isolated. Settings displays `0.34.0 (fork <commit>)`, using
-`CODEG_BUILD_COMMIT` from the current Git HEAD. The bundle version stays
-`0.34.0`; commit stamping does not change update version comparisons.
+For a local Apple Development certificate, obtain its SHA-1 with
+`security find-identity -v -p codesigning`, then set your own values:
 
-Signing follows the upstream release workflow: build sidecars, sign the
-nested helper first, then let Tauri sign the MCP sidecar and outer app. All
-use hardened runtime without entitlements. Both helper trust requirements pin
-the same certificate and team. `CODEG_COMPUTER_SIGNING=development` selects
-Apple's Development launch validation category (3) for the helper; the
-separately distributed cua-driver retains its Developer ID category (6),
-vendor team, and pinned hashes. This local build is not notarized.
-
-The script uses the repository's pnpm pin with `CI=true`, four Cargo jobs,
-temporary build data directories, and this worktree's Cargo target directory.
-Static gates check bundle identity, nested signatures, runtime flags, absence
-of entitlements and quarantine before staging. Review the staged app with:
-
-```sh
-codesign --verify --deep --strict ~/Applications/codeg-staged/codeg.app
-codesign -dvvv ~/Applications/codeg-staged/codeg.app
+```bash
+export CODEG_SELFHOST_SIGNING_IDENTITY='<40-hex-certificate-SHA-1>'
+export CODEG_SELFHOST_TEAM_ID='<10-character-team-id>'
+scripts/build-selfhost.sh --bundles=app,dmg
 ```
 
-Installation and rollback belong to the later swap task. Preserve the existing
-app and all data there; this script performs no migration or data operation.
+Both variables are required for certificate-backed builds; missing or invalid
+values fail before compilation. Existing selfhost users must now set these
+variables locally instead of relying on machine-specific defaults. Do not
+commit credentials. `CODEG_SELFHOST_SIGNING_KIND=developer-id` selects Developer
+ID validation when using a Developer ID certificate; the default is `development`.
+
+Without a certificate, use explicit ad-hoc signing:
+
+```bash
+CODEG_SELFHOST_SIGNING_IDENTITY=- scripts/build-selfhost.sh --bundles=app,dmg
+```
+
+Ad-hoc builds set `CODEG_COMPUTER_SIGNING=disabled`: **macOS computer use is
+unavailable in unsigned builds**. The application refuses helper lookup/copy/
+launch, and the helper refuses direct invocation and permission requests.
+Removing Apple team checks would let another local process impersonate a peer;
+we do not substitute a permissive requirement. Signed builds keep certificate,
+team, launch-category and peer checks; cua-driver's separate trust pins are intact.
+
+Neither local mode notarizes. Public CI uses the same ad-hoc policy when Apple
+secrets are absent; fully configured Developer ID CI retains notarization.
+
+## Output and verification
+
+The default bundle is `app`; `--bundles=app,dmg` also produces a disk image.
+Outputs stay in `src-tauri/target/release/bundle/`. `--stage` optionally copies
+to `~/Applications/codeg-staged/codeg.app`, refusing existing destinations or
+redirected stage directories. It never writes to `/Applications`.
+
+The script disables updates with `CODEG_UPDATER=off`,
+`NEXT_PUBLIC_CODEG_UPDATER=off` and `tauri.selfhost.conf.json` (no endpoints or
+updater artifacts). `CODEG_FLAVOR` stays unset. Settings shows the Git commit;
+the signed Info.plist contains `CodegBuildCommit`. The app version remains 0.34.0.
+
+Sidecars are built first and the nested helper is signed before the outer app.
+Certificate-backed builds use hardened runtime and pinned requirements; all
+modes verify every nested signature, official identity, build stamp, absence of
+entitlements and quarantine. The script uses the repo-pinned pnpm with `CI=true`,
+four Cargo jobs, temporary data directories and this checkout's target directory.
+
+Static inspection (does not run the app):
+
+```bash
+codesign --verify --deep --strict src-tauri/target/release/bundle/macos/codeg.app
+codesign -dvvv src-tauri/target/release/bundle/macos/codeg.app
+```
+
+For an intentional installation, backup, handover and rollback, see
+[SELFHOST.md](fork/SELFHOST.md). For an isolated side-by-side test app use
+[build-fork.sh](../scripts/build-fork.sh) instead.

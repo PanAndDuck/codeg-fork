@@ -180,6 +180,9 @@ fn helper_for(exe: &Path, mac: bool) -> Option<PathBuf> {
 /// codeg's bundle, its copy outside it — made or brought up to date first —
 /// and the shipped helper itself otherwise.
 async fn helper_to_run() -> Result<PathBuf, BackendError> {
+    if let Some(why) = super::unsigned_build_reason() {
+        return Err(BackendError::Unavailable(why.into()));
+    }
     let shipped = locate_helper_binary().ok_or_else(|| {
         BackendError::Unavailable(format!(
             "{} is missing from this installation",
@@ -1306,6 +1309,25 @@ async fn forward_stderr(stderr: Box<dyn AsyncRead + Send + Unpin>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    async fn unsigned_public_build_refuses_helper_before_lookup_or_copy() {
+        if option_env!("CODEG_COMPUTER_SIGNING") != Some("disabled") {
+            return;
+        }
+        // Even a caller-supplied executable cannot bypass the build policy.
+        let dir = tempfile::tempdir().unwrap();
+        let fake = dir.path().join(helper_file_name());
+        std::fs::write(&fake, b"not executable").unwrap();
+        temp_env::async_with_vars([("CODEG_COMPUTER_HELPER_BIN", Some(&fake))], async {
+            assert!(matches!(
+                helper_to_run().await,
+                Err(BackendError::Unavailable(why)) if why.contains("unsigned builds")
+            ));
+        })
+        .await;
+    }
 
     /// The whole codeg side against a real helper and the real pinned
     /// driver: launch disclaimed over a socketpair, the first-frame

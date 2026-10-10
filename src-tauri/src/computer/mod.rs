@@ -81,6 +81,15 @@ pub mod stop_shortcut;
 pub mod targets;
 pub mod types;
 
+/// Public ad-hoc macOS builds cannot authenticate peers by an Apple team.
+/// Keep developer and certificate-backed builds on their existing trust path.
+pub fn unsigned_build_reason() -> Option<&'static str> {
+    (cfg!(target_os = "macos") && option_env!("CODEG_COMPUTER_SIGNING") == Some("disabled"))
+        .then_some(
+            "Computer use is unavailable in unsigned builds; use a certificate-backed build.",
+        )
+}
+
 #[cfg(target_os = "macos")]
 pub mod codesign;
 #[cfg(target_os = "macos")]
