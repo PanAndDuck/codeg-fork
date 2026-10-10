@@ -8,9 +8,7 @@ import uuid
 
 from faultctl import control
 from harness import api, endpoint, load_state
-from ui_command import ui, EVIDENCE
-
-SIM = '7088DFC5-3BD7-4081-90B0-A116DF49B4F6'
+from ui_command import ui, evidence_dir
 
 
 def call(command, params=None, through='server', raw=False):
@@ -26,7 +24,7 @@ def fault(command, **params):
 def capture(name):
     result = ui({'action':'state', 'screenshot':True}, name)
     status = fault('status')
-    (EVIDENCE / (name + '-proxy.json')).write_text(json.dumps(status, indent=2))
+    (evidence_dir() / (name + '-proxy.json')).write_text(json.dumps(status, indent=2))
     return result.get('tree','')
 
 
@@ -42,7 +40,7 @@ def send(text, name):
         tree = ui({'action':'state'}, name+'-tap-check').get('tree','')
         if "label: 'Stop'" not in tree and re.search(r'TextView,.*value:', tree):
             result = ui({'action':'tap','type':'button','label':'Send','screenshot':True}, name+'-sent-confirmed')
-    (EVIDENCE / (name+'-send-time.json')).write_text(json.dumps({'started_unix':start,'returned_unix':time.time()}))
+    (evidence_dir() / (name+'-send-time.json')).write_text(json.dumps({'started_unix':start,'returned_unix':time.time()}))
     if 'error' in result:
         raise RuntimeError(result['error'])
     return result.get('tree','')
@@ -83,5 +81,5 @@ def prompt(session, text):
 
 
 def record(name, result):
-    (EVIDENCE / (name+'-result.json')).write_text(json.dumps(result, indent=2))
+    (evidence_dir() / (name+'-result.json')).write_text(json.dumps(result, indent=2))
     print(name, json.dumps(result), flush=True)

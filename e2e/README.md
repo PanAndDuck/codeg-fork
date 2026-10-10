@@ -339,7 +339,7 @@ run last). No network-interface changes or off-host requests are made.
 The unaffected alternate-IP check uses loopback, which C3 deliberately exempts;
 it does not prove isolation between two non-loopback IP buckets.
 
-`e1a_monitor.py --evidence DIRECTORY` samples explicit owned PIDs until
+`e1a_monitor.py --evidence DIRECTORY --official-pid PID` samples explicit owned PIDs until
 `DIRECTORY/monitor.stop` exists. Optional `desktop-owned.json` contains the
 desktop process identity recorded after an absolute-path `open -n` launch.
 `swift e2e/e1a_decode_qr.swift WINDOW.png PRIVATE.json` decodes one actual QR

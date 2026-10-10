@@ -7,6 +7,15 @@ import os
 from pathlib import Path
 import urllib.request
 
+def evidence_dir(value=None):
+    value = value or os.environ.get('CODEG_E2E_UI_EVIDENCE')
+    if not value:
+        raise ValueError('Provide an evidence path or CODEG_E2E_UI_EVIDENCE')
+    destination = Path(value)
+    destination.mkdir(parents=True, exist_ok=True)
+    return destination
+
+
 def ui(command, name='latest', *, config=None, evidence=None):
     config = config or os.environ.get('CODEG_E2E_UI_CONFIG')
     evidence = evidence or os.environ.get('CODEG_E2E_UI_EVIDENCE')
@@ -14,8 +23,7 @@ def ui(command, name='latest', *, config=None, evidence=None):
         raise ValueError('Provide config/evidence paths or CODEG_E2E_UI_CONFIG/CODEG_E2E_UI_EVIDENCE')
     if Path(name).name != name or name in ('', '.', '..'):
         raise ValueError('Evidence name must be a filename, not a path')
-    evidence = Path(evidence)
-    evidence.mkdir(parents=True, exist_ok=True)
+    evidence = evidence_dir(evidence)
     url = json.loads(Path(config).read_text())['url']
     request = urllib.request.Request(url + '/command', json.dumps(command).encode(), {'Content-Type':'application/json'})
     with urllib.request.urlopen(request, timeout=65) as response:
