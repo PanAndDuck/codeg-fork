@@ -1030,7 +1030,15 @@ jobs:
           sudo apt-get install -y musl-tools
           cargo build --locked --release --manifest-path crates/codeg-relay/Cargo.toml --target ${{ matrix.target }}
           binary="crates/codeg-relay/target/${{ matrix.target }}/release/codeg-relay"
-          file "$binary" | grep -E 'statically linked|static-pie linked'
+          file "$binary"
+          # Older `file` (Ubuntu 22.04) reports static-pie as "dynamically
+          # linked", so check the ELF headers directly: no interpreter, no
+          # shared-library dependencies.
+          if readelf -l "$binary" | grep -q 'program interpreter' \
+            || readelf -d "$binary" | grep -q '(NEEDED)'; then
+            echo "codeg-relay is not statically linked" >&2
+            exit 1
+          fi
           "$binary" --version
       - name: Package relay and deployment kit
         run: |
