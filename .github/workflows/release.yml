@@ -19,7 +19,9 @@ env:
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 concurrency:
-  group: release-${{ github.ref }}
+  # Key on the release tag so a tag push and a manual dispatch of the same
+  # tag never run (and delete each other's drafts) concurrently.
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -79,7 +81,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$(git rev-list -n 1 "refs/tags/$RELEASE_TAG")"
 
       - id: release
-        name: Create or reuse draft release
+        name: Create a fresh draft release
         uses: actions/github-script@v7
         env:
           PRERELEASE: ${{ steps.meta.outputs.prerelease }}
@@ -115,55 +117,43 @@ jobs:
               .readFileSync("docs/fork/RELEASE_NOTES.md", "utf8").trim();
             let release;
 
-            try {
-              const existing = await github.rest.repos.getReleaseByTag({
+            // getReleaseByTag never returns drafts, so drafts left by earlier
+            // runs of this tag must be found by listing. Drop them so every
+            // upload in this run lands in one fresh draft that publish-release
+            // can verify.
+            const sameTag = (
+              await github.paginate(github.rest.repos.listReleases, {
                 owner,
                 repo,
-                tag,
-              });
-
-              if (!existing.data.draft) {
-                core.setFailed(
-                  `Release for tag ${tag} already exists and is not a draft.`,
-                );
-                return;
-              }
-
-              release = existing.data;
-              if (
-                release.prerelease !== prerelease ||
-                release.name !== releaseName ||
-                (release.body ?? "").trim() !== releaseBody
-              ) {
-                const updated = await github.rest.repos.updateRelease({
-                  owner,
-                  repo,
-                  release_id: release.id,
-                  name: releaseName,
-                  prerelease,
-                  body: releaseBody,
-                });
-                release = updated.data;
-              }
-              core.info(`Reusing existing draft release #${release.id}`);
-            } catch (error) {
-              if (error.status !== 404) {
-                throw error;
-              }
-
-              const created = await github.rest.repos.createRelease({
-                owner,
-                repo,
-                tag_name: tag,
-                name: releaseName,
-                body: releaseBody,
-                draft: true,
-                prerelease,
-              });
-
-              release = created.data;
-              core.info(`Created draft release #${release.id}`);
+                per_page: 100,
+              })
+            ).filter((r) => r.tag_name === tag);
+            if (sameTag.some((r) => !r.draft)) {
+              core.setFailed(
+                `Release for tag ${tag} already exists and is not a draft.`,
+              );
+              return;
             }
+            for (const stale of sameTag) {
+              await github.rest.repos.deleteRelease({
+                owner,
+                repo,
+                release_id: stale.id,
+              });
+              core.info(`Deleted stale draft release #${stale.id}`);
+            }
+
+            const created = await github.rest.repos.createRelease({
+              owner,
+              repo,
+              tag_name: tag,
+              name: releaseName,
+              body: releaseBody,
+              draft: true,
+              prerelease,
+            });
+            release = created.data;
+            core.info(`Created draft release #${release.id}`);
 
             core.setOutput("release_id", String(release.id));
             core.setOutput("release_url", release.html_url);
