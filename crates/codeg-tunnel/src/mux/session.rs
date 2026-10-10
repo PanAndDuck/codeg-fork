@@ -21,6 +21,21 @@ struct Credit {
 
 type Credits = Arc<Mutex<HashMap<u32, Arc<Credit>>>>;
 
+/// Atomically replaces the credit with `f(current)`, or fails without writing
+/// when `f` rejects it. Same semantics as `AtomicU32::fetch_update`, which Rust
+/// 1.99 deprecates in favour of `try_update`; spelled out so the crate builds
+/// warning-free on both older and newer toolchains.
+fn update_credit(credit: &AtomicU32, f: impl Fn(u32) -> Option<u32>) -> Result<u32, u32> {
+    let mut current = credit.load(Ordering::Acquire);
+    loop {
+        let next = f(current).ok_or(current)?;
+        match credit.compare_exchange_weak(current, next, Ordering::AcqRel, Ordering::Acquire) {
+            Ok(previous) => return Ok(previous),
+            Err(actual) => current = actual,
+        }
+    }
+}
+
 enum Sent {
     Data(usize),
     Eof,
@@ -456,12 +471,7 @@ impl Session {
                             return Ok(());
                         }
                         let n = payload.len() as u32;
-                        if slot
-                            .credit
-                            .receive
-                            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |credit| {
-                                credit.checked_sub(n)
-                            })
+                        if update_credit(&slot.credit.receive, |credit| credit.checked_sub(n))
                             .is_err()
                         {
                             self.fail_stream(id, CloseCode::Protocol, "sent past the window")
@@ -474,13 +484,10 @@ impl Session {
                         if grant == 0 {
                             return Ok(());
                         }
-                        if slot
-                            .credit
-                            .send
-                            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |credit| {
-                                credit.checked_add(grant).filter(|n| *n <= INITIAL_WINDOW)
-                            })
-                            .is_err()
+                        if update_credit(&slot.credit.send, |credit| {
+                            credit.checked_add(grant).filter(|n| *n <= INITIAL_WINDOW)
+                        })
+                        .is_err()
                         {
                             self.fail_stream(id, CloseCode::Protocol, "WINDOW exceeds bytes sent")
                                 .await;
