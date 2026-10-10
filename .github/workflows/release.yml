@@ -679,7 +679,8 @@ jobs:
             echo "FATAL: codeg-mcp links WebKit: tauri build's own copy replaced the sidecar"
             exit 1
           fi
-          for path in "$app/Contents/MacOS/codeg" "$app/Contents/MacOS/codeg-mcp" "$helper_app"; do
+          for path in "$app/Contents/MacOS/codeg" "$app/Contents/MacOS/codeg-mcp" \
+            "$helper_app" "$helper_app/Contents/MacOS/codeg-computer-helper"; do
             name="$(basename "$path")"
             if [ "$APPLE_SIGNING_IDENTITY" = - ]; then
               codesign -dv "$path" 2>&1 | grep -q '^Signature=adhoc$'
@@ -699,7 +700,9 @@ jobs:
           else
             test "$CODEG_COMPUTER_SIGNING" = disabled
             # The packaged helper also refuses direct invocation in this mode.
-            strings "$app/Contents/MacOS/codeg" | grep -F 'Computer use is unavailable in unsigned builds' > /dev/null
+            for binary in "$app/Contents/MacOS/codeg" "$helper_app/Contents/MacOS/codeg-computer-helper"; do
+              strings "$binary" | grep -F 'Computer use is unavailable in unsigned builds' > /dev/null
+            done
           fi
           test "$(/usr/libexec/PlistBuddy -c 'Print :CodegBuildCommit' "$app/Contents/Info.plist")" = "$CODEG_BUILD_COMMIT"
           # Literal dollar matches Objective-C symbol names.
@@ -887,6 +890,15 @@ jobs:
           cargo build --release --bin codeg-server --no-default-features --features server-bin --target ${{ matrix.target }}
           cargo build --release --bin codeg-mcp --no-default-features --features mcp-bin --target ${{ matrix.target }}
           cargo build --release --bin codeg-computer-helper --no-default-features --features computer-helper --target ${{ matrix.target }}
+
+      - name: Ad-hoc sign standalone macOS binaries
+        if: contains(matrix.target, 'apple-darwin')
+        run: |
+          for binary in codeg-server codeg-mcp codeg-computer-helper; do
+            path="src-tauri/target/${{ matrix.target }}/release/$binary"
+            codesign --force --options runtime --sign - "$path"
+            codesign --verify --strict "$path"
+          done
 
       - name: Package (Unix)
         if: runner.os != 'Windows'

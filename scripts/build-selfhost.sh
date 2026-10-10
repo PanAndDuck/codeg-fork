@@ -127,7 +127,9 @@ if [[ "$APPLE_SIGNING_IDENTITY" != - ]]; then
   codesign --verify --strict -R="$CODEG_COMPUTER_PEER_REQUIREMENT" "$APP"
   codesign --verify --strict -R="$CODEG_COMPUTER_HELPER_REQUIREMENT" "$APP/Contents/Helpers/codeg-computer-helper.app"
 fi
-for code in "$APP/Contents/MacOS/codeg" "$APP/Contents/MacOS/codeg-mcp" "$APP/Contents/Helpers/codeg-computer-helper.app"; do
+for code in "$APP/Contents/MacOS/codeg" "$APP/Contents/MacOS/codeg-mcp" \
+  "$APP/Contents/Helpers/codeg-computer-helper.app" \
+  "$APP/Contents/Helpers/codeg-computer-helper.app/Contents/MacOS/codeg-computer-helper"; do
   summary="$(codesign -dvvv "$code" 2>&1)"
   if [[ "$APPLE_SIGNING_IDENTITY" == - ]]; then
     grep -q '^Signature=adhoc$' <<< "$summary"
