@@ -4,6 +4,23 @@ Python 3 standard library only; no LLM account, token, package install or real
 agent invocation. Run from a codeg worktree containing this `e2e/` directory.
 Requires the existing Rust toolchain, `openssl`, `ps`, `lsof`, and Bash.
 
+## Simulator tooling
+
+The optional iOS XCUITest bridge uses `ui_bridge.py --port <test-port>
+--config <ios-checkout>/CodegiOSUITests/E1bController.json`. Configure
+`ui_command.py` with `--config <controller.json> --evidence <private-directory>`,
+or set `CODEG_E2E_UI_CONFIG` and `CODEG_E2E_UI_EVIDENCE` for Python callers.
+Send credentials only through the bridge's `/secret` endpoint; never include
+them in commands or publish raw screenshots. `finish` ends the UI driver.
+Fault/lifecycle helpers operate only on harness-owned processes; run
+`env-down.sh --name <environment>` and stop the bridge you started afterward.
+`e1a_monitor.py` requires `--evidence` and the current `--official-pid`; it derives
+protected data paths from the current user's home directory.
+
+Run the isolated tooling tests with
+`python3 -m unittest discover -s e2e/tests -v`. Integration scenarios and their
+limitations are documented below; historical machine-specific plans are omitted.
+
 ## Safety and lifecycle
 
 Start **every shell** with:

@@ -86,33 +86,26 @@ TasksMax=256、LimitNOFILE=8192。内存/CPU 上限用于隔离共享 VPS；大�
    才显示 agent_connected/active_streams。普通请求在 agent 离线时返回 503 `relay_agent_offline`。
 5. 自签证书浏览器需要单独建立信任；iOS / 家庭端按 fingerprint pin 验证。
 
-## 共享服务器隔离检查（PLAN §8，HK 仅限 E2 授权后）
+## 共享服务器隔离检查
 
-以下是 E2 操作清单；C6 不登录 HK。部署前将 baseline 保存至
-`/root/codeg-relay-baseline-<date>.txt`：
+部署前记录现有服务状态、启动时间、网站响应、监听端口及防火墙规则。
+每一步后确认现有服务不受影响：原服务无重启、原监听地址/进程不变，
+只有 relay 端口及明确授权的防火墙规则发生变化。示例地址请替换为自己的服务器。
 
 ```bash
-systemctl is-active nginx php8.2-fpm mysql redis-server your-cron-service your-bot-service
+systemctl --failed
 ufw status numbered
-curl -s -o /dev/null -w '%{http_code}' --resolve example.com:443:127.0.0.1 https://example.com/
 ss -ltnp
-```
-
-每一步后再次运行以上命令，确认六个 service 状态一致、网站仍 200、原有监听不变，
-仅新增 relay 18443 与经批准的 UFW rule。不得编辑 nginx/php/mysql/redis/sshd 配置，
-不得 reload/restart 这些服务，不执行 apt install/upgrade、sysctl，不触碰 22/80/443/3306/6379。
-
-HK 安装命令（只供 E2 明确授权后执行）：
-
-```bash
-cd /root/codeg-relay-kit
-sha256sum -c codeg-relay-x86_64-unknown-linux-musl.sha256
-bash deploy/install.sh --binary ./codeg-relay-x86_64-unknown-linux-musl \
-  --port 18443 --public-host 203.0.113.10 --open-firewall
+curl -s -o /dev/null -w '%{http_code}' https://example.com/
+sudo bash deploy/install.sh --binary ./codeg-relay \
+  --port 18443 --public-host 203.0.113.10
 systemctl status codeg-relay --no-pager
-/opt/codeg-relay/bin/codeg-relay fingerprint --data-dir /var/lib/codeg-relay
-curl --cacert /var/lib/codeg-relay/tls/cert.pem https://203.0.113.10:18443/__codeg_relay/v1/health
+sudo /opt/codeg-relay/bin/codeg-relay fingerprint --data-dir /var/lib/codeg-relay
+sudo curl --cacert /var/lib/codeg-relay/tls/cert.pem https://203.0.113.10:18443/__codeg_relay/v1/health
 ```
+
+不要修改或重启已有业务服务；按需由管理员单独开放 relay TCP 端口。
+`systemctl daemon-reload` 会重读 unit 定义，不应重启已有服务。
 
 ## 完整回滚
 
@@ -125,7 +118,7 @@ sudo bash deploy/uninstall.sh
 供人工核对。随后移除专用用户/组、三个专用目录（包括 key/cert）。再次卸载无副作用。
 卸载前需要保留身份时，将 key/cert 备份到受保护的位置；完整卸载后重新安装会改变身份。
 
-PLAN §8 的人工回滚命令如下；UFW 删除仅可用于确认由此次安装添加的规则，优先用脚本：
+人工回滚命令如下；UFW 删除仅可用于确认由此次安装添加的规则，优先用脚本：
 
 ```bash
 systemctl disable --now codeg-relay

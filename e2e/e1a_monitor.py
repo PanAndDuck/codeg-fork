@@ -10,6 +10,7 @@ from harness import load_state
 
 p = argparse.ArgumentParser()
 p.add_argument('--evidence', required=True)
+p.add_argument('--official-pid', type=int, required=True)
 a = p.parse_args()
 root = Path(a.evidence)
 stop = root / 'monitor.stop'
@@ -31,12 +32,12 @@ with (root / 'isolation.jsonl').open('a') as out:
             if identity(proc['pid']) != proc['identity']:
                 continue
             result = subprocess.run(['lsof', '-nP', '-p', str(proc['pid'])], capture_output=True, text=True)
-            forbidden = ['/Users/you/Library/Application Support/app.codeg/', '/Users/you/.codeg/']
+            forbidden = [str(Path.home() / 'Library/Application Support/app.codeg') + '/', str(Path.home() / '.codeg') + '/']
             hits = [line for line in result.stdout.splitlines() if any(x in line for x in forbidden)]
             rows.append({'role': role, 'pid': proc['pid'], 'official_path_hits': hits})
             if role == 'desktop':
                 (root / 'desktop-lsof-latest.txt').write_text(result.stdout)
-        official = subprocess.run(['ps', '-p', '87598', '-o', 'command='], capture_output=True, text=True).stdout.strip()
+        official = subprocess.run(['ps', '-p', str(a.official_pid), '-o', 'command='], capture_output=True, text=True).stdout.strip()
         owners = subprocess.run(['lsof', '-nP', '-iTCP:3080', '-sTCP:LISTEN', '-t'], capture_output=True, text=True).stdout.split()
         out.write(json.dumps({'time': time.time(), 'official_path_ok': official == '/Applications/codeg.app/Contents/MacOS/codeg', 'port3080_pids': owners, 'owned': rows}) + '\n')
         out.flush()
