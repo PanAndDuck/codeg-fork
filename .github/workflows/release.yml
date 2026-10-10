@@ -1005,7 +1005,9 @@ jobs:
       matrix:
         include:
           - arch: x64
-            runner: ubuntu-22.04
+            # musl-gcc on 22.04 (musl 1.2.2) cannot emit static-pie and
+            # silently produces a binary needing ld-musl; 24.04 can.
+            runner: ubuntu-24.04
             target: x86_64-unknown-linux-musl
           - arch: arm64
             runner: ubuntu-24.04-arm
