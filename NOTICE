@@ -1,0 +1,8 @@
+codeg-fork is derived from spacering-net/codeg v0.34.0.
+Upstream code and notices remain subject to the Apache License, Version 2.0.
+See LICENSE and individual source files for upstream copyright notices.
+
+Modifications Copyright 2026 PanAndDuck.
+Modified for outbound remote relay, connection reliability and authentication,
+ACP ordering, isolated build flavors, self-host tooling, tests and fork releases.
+This is an independent fork, not an upstream-endorsed release.

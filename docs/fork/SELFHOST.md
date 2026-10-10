@@ -10,11 +10,21 @@
 
 ```bash
 unset CODEG_DATA_DIR CODEG_HOME CODEG_STATIC_DIR CODEG_ACP_TMP_ROOT CODEG_TOKEN CODEG_PORT CODEG_HOST
+export CODEG_SELFHOST_SIGNING_IDENTITY='<40-hex-certificate-SHA-1>'
+export CODEG_SELFHOST_TEAM_ID='<10-character-team-id>'
 scripts/build-selfhost.sh --stage
 scripts/selfhost/swap.sh --dry-run --staged "$HOME/Applications/codeg-staged/codeg.app"
 ```
 
-`build-selfhost.sh` 由正式身份构建任务提供；`build-fork.sh` 生成独立的 `Codeg-Fork.app`，不能作为正式身份替换源。此流程要求已有正式 app 和 `codeg.db`；空白机器首次安装请先用官方安装器初始化，再执行替换。
+签名参数现在必须由操作者提供；不要将证书、团队信息或 token 写进仓库。
+无证书时可改用 `CODEG_SELFHOST_SIGNING_IDENTITY=- scripts/build-selfhost.sh --stage`；
+此模式不公证，并禁用 macOS computer-use（helper 不启动，也不申请权限）。
+详见[构建与签名说明](../selfhost-build.md)。
+
+`build-selfhost.sh` 生成正式身份的包；`build-fork.sh` 生成独立的 `Codeg-Fork.app`，不能作为正式身份替换源。此流程要求已有正式 app 和 `codeg.db`；空白机器首次安装请先用安装器初始化，再执行替换。
+
+此 fork 基于 v0.34.0，没有新增数据库迁移。正式身份发行包兼容已有数据，可切回该上游版本；
+更新器已关闭，后续升级请下载新 release 或重新构建。保留备份后再切换任何未来版本。
 
 预检检查暂存包和当前包的签名、bundle id、主程序名称、空间和路径。新包必须带 `CodegBuildCommit`，且其 commit/version 和 cdhash 能区分于当前包。脚本拒绝重叠路径、残留 `.new` 和非完整隔离的 `--inline`。`--dry-run` 只读取 app 元数据/签名与空间，打印所有计划动作；不读取真实数据库，不建立日志或任何目录。
 

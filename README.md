@@ -1,3 +1,59 @@
+# codeg-fork
+
+**English · 简体中文** — Based on [spacering-net/codeg v0.34.0](https://github.com/spacering-net/codeg/releases/tag/v0.34.0), licensed under [Apache-2.0](LICENSE), with modifications by **PanAndDuck**. 本项目基于官方 v0.34.0，是独立维护的 fork，保留上游许可与致谢。
+
+## What's new in this fork / 我们更新了什么
+
+- **Built-in remote relay / 内建远程中继**: home codeg dials out to your self-hosted `codeg-relay` VPS, with TLS certificate pinning, multiplexed streams, status UI and iOS pairing QR/copy codes. 家中无需公网 IP、端口映射或 VPN；支持证书指纹固定、多路复用和状态显示。
+- **Relay server / 中继服务端**: standalone Rust `codeg-relay` plus isolated systemd deploy/uninstall scripts. 提供独立服务与部署、卸载及防火墙回滚工具。
+- **WebSocket reliability / 连接可靠性**: dedicated writer fixes a backpressure deadlock; heartbeats and stall detection recover failed connections. 修复写入队列死锁，加入心跳和停滞检测。
+- **Auth hardening / 认证加固**: constant-time token comparison, per-IP failure limiting, TCP keepalive/NODELAY. 常量时间比较、按 IP 限流和 TCP 连接优化。
+- **ACP turn ordering / 回合顺序**: queued updates precede `turn_complete`, so the final delta cannot arrive afterward. 最终增量先于完成事件处理。
+- **Selfhost tooling / 自托管工具**: updater-off builds with commit stamps, backup/swap/rollback and upstream sync scripts. 支持关闭更新器、构建标记、备份替换、回滚及上游同步。
+- **Codeg-Fork flavor / 可选并存版本**: separate identity/data/ports for local test builds. 可通过源码脚本构建隔离的并存应用。
+- **E2E harness / 端到端测试工具**: deterministic mock ACP agent, isolated relay/server and fault injection. 提供可重复的模拟代理与故障注入环境。
+- **Companion iOS app / 配套 iOS 应用**: [PanAndDuck/codeg-ios-fork](https://github.com/PanAndDuck/codeg-ios-fork).
+
+[Detailed changes with commit provenance / 提交依据与完整变更](docs/fork/CHANGES.md) · [Relay guide / 中继指南](docs/fork/RELAY.md) · [Selfhost / 自托管](docs/fork/SELFHOST.md)
+
+## Downloads / 下载
+
+Download **this fork** from [GitHub Releases](https://github.com/PanAndDuck/codeg-fork/releases). 下方分隔线之后保留的是上游 README，其下载入口指向上游；本 fork 请使用此处的 Releases。
+
+| Platform / 平台             | Assets / 安装包                                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------------------------ |
+| macOS Apple Silicon / Intel | `codeg_0.34.0_aarch64.dmg`, `codeg_0.34.0_x64.dmg`; `codeg_aarch64.app.tar.gz`, `codeg_x64.app.tar.gz` |
+| Windows x64 / arm64         | `codeg_0.34.0_x64-setup.exe`, `codeg_0.34.0_arm64-setup.exe` (NSIS)                                    |
+| Linux amd64 / arm64         | `.deb`; x86_64 / aarch64 `.rpm`; amd64 `.AppImage`                                                     |
+| codeg-server                | `codeg-server-{darwin,linux}-{arm64,x64}.tar.gz`, `codeg-server-windows-x64.zip` + `.sha256`           |
+| codeg-relay                 | `codeg-relay-linux-{x64,arm64}.tar.gz` (static musl binary + deploy kit) + `.sha256`                   |
+| Docker amd64 / arm64        | `ghcr.io/panandduck/codeg-fork:0.34.0-fork.1` or `:latest`                                             |
+
+### Install notes / 安装须知
+
+- **macOS is NOT notarized in the default no-secrets release.** Right-click the installed app → **Open** for first launch. If necessary after verifying the download: `xattr -dr com.apple.quarantine /Applications/codeg.app`. 默认 macOS 包采用 ad-hoc 签名、未公证，首次请右键打开或手动移除隔离标记。
+- **macOS computer use is unavailable in unsigned builds.** Apple team-pinned helper trust cannot be preserved by ad-hoc signatures; the helper is disabled, including direct invocation. Certificate-backed builds retain their trust checks. 无证书包禁用电脑控制；可用自己的证书编译此功能。
+- **Windows SmartScreen**: for a trusted download choose **More info → Run anyway**（更多信息 → 仍要运行）.
+- **Updater disabled** in both desktop and server builds; update by downloading a new fork release. 应用内更新器已关闭，不会自动切换回上游。
+- Release desktop packages keep the **same identity and data locations as official codeg**. Installing over it preserves existing data. No DB migrations were added relative to v0.34.0, so you can switch back to that official version; keep backups before switching. 下载包沿用官方身份和数据，可覆盖安装并保留会话；不是隔离的并存版本。
+- After switching signatures, re-grant keychain **Always Allow** and applicable macOS privacy permissions. 切换签名后，按系统提示重新授权钥匙串“始终允许”及隐私权限。
+- Server/relay `.sha256` files support `sha256sum -c <file>.sha256` (macOS: `shasum -a 256 -c <file>.sha256`). No `latest.json` or updater `.sig` files are distributed. 校验值用于检查下载完整性。
+
+### Relay quick start / 中继快速开始
+
+Deploy `codeg-relay` on a trusted VPS using the [deploy guide](crates/codeg-relay/deploy/README.zh-CN.md), open its chosen TCP port, then enable **Settings → Web service → Remote relay** in home codeg. Test the URL/key/certificate fingerprint, wait for Connected, and scan the relay pairing QR with [codeg-ios-fork](https://github.com/PanAndDuck/codeg-ios-fork). 手机使用家庭 codeg 的 web token，agent key 仅用于家庭端连接中继。
+
+中继终止 TLS，管理员可读取 HTTP 内容和 web token；请使用可信 VPS。每个 relay 同时只支持一个活动家庭端。See the [end-to-end guide](docs/fork/RELAY.md) for trust, handover and troubleshooting.
+
+### Build from source / 源码构建
+
+Start with upstream's [Development](https://docs.codeg.app/reference/development) and [Deployment](https://docs.codeg.app/getting-started/deployment) docs. Use [scripts/build-fork.sh](scripts/build-fork.sh) for the isolated Codeg-Fork app, or [scripts/build-selfhost.sh](scripts/build-selfhost.sh) for official identity with updates disabled. 自托管签名参数与 ad-hoc 模式见 [build guide](docs/selfhost-build.md)，备份/替换/回滚见 [SELFHOST.md](docs/fork/SELFHOST.md)。
+
+The release workflow accepts `v<app version>-fork.<n>` tags or manual dispatch for an existing tag. It builds official-style packages, adds relay kits and publishes only after all build jobs succeed. Apple credentials are optional; Docker Hub is used only when configured, while GHCR uses GitHub's built-in token. App version remains 0.34.0, and `CodegBuildCommit` identifies the fork build.
+
+---
+
+<!-- Upstream README, retained below. -->
 <h1 align="center">
   <a href="https://docs.codeg.app"><img src="./public/icon.svg" alt="Codeg logo" width="64" align="absmiddle" /></a> Codeg
 </h1>

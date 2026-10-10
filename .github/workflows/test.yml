@@ -159,6 +159,14 @@ jobs:
         working-directory: src-tauri
         run: cargo clippy ${{ matrix.clippy_args }} -- -D warnings
 
+      - name: Unsigned macOS helper cannot start
+        if: matrix.os == 'macos-latest' && matrix.mode == 'desktop'
+        working-directory: src-tauri
+        env:
+          CODEG_UPDATER: "off"
+          CODEG_COMPUTER_SIGNING: disabled
+        run: cargo test --features test-utils --lib unsigned_public_build_refuses_helper
+
       - name: Web handlers must route through commands/*_core
         # Lock in the dedup from Phase 8: web/handlers/{folders,conversations}.rs
         # must not call DB services directly. They have to delegate to a
